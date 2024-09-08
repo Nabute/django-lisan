@@ -1,6 +1,8 @@
-# Django Lisan
+# Lisan - ልሳን
 
-**Django Lisan** is a Django package that simplifies the process of adding translation support to model fields in Django projects. With `Lisan`, you can easily manage multilingual content within your Django models, API, and admin interface.
+**means**: A language
+
+**Lisan** is a Django package that simplifies the process of adding translation support to model fields in Django projects. With `Lisan`, you can easily manage multilingual content within your Django models, API, and admin interface.
 
 ## Features
 
@@ -11,10 +13,10 @@
 
 ## Installation
 
-You can install Django Lisan via pip:
+You can install Lisan via pip:
 
 ```bash
-pip install django-lisan
+pip install lisan
 ```
 
 ## Lisan Settings
@@ -234,7 +236,7 @@ class SnippetViewSet(viewsets.ModelViewSet):
 
 ### Summary
 
-This `README.md` provides a comprehensive overview of the `django-lisan` package, including settings, installation, configuration, and usage instructions. It covers how to create and retrieve translations for Django models and includes API examples for managing translated content.
+This `README.md` provides a comprehensive overview of the `lisan` package, including settings, installation, configuration, and usage instructions. It covers how to create and retrieve translations for Django models and includes API examples for managing translated content.
 
 ## Contributing
 
@@ -242,4 +244,4 @@ If you find any issues or have suggestions for improvements, feel free to open a
 
 ## License
 
-Django Lisan is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
+Lisan is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
