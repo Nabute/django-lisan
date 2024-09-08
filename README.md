@@ -1,10 +1,6 @@
-Here's the updated README with a more detailed example, incorporating how you've used `Lisan` in your project:
-
----
-
 # Django Lisan
 
-**Django Lisan** is a Django package that simplifies the process of adding translation support to model fields in Django projects. With `Lisan`, you can easily manage multilingual content within your Django models and admin interface.
+**Django Lisan** is a Django package that simplifies the process of adding translation support to model fields in Django projects. With `Lisan`, you can easily manage multilingual content within your Django models, API, and admin interface.
 
 ## Features
 
@@ -21,6 +17,32 @@ You can install Django Lisan via pip:
 pip install django-lisan
 ```
 
+## Lisan Settings
+
+### 1. Configuring Lisan
+
+To start using `Lisan` in your project, you need to configure the language settings and middleware in your Django settings file.
+
+#### Step 1.0: Add Lisan Language Settings
+
+```python
+LISAN_DEFAULT_LANGUAGE = 'en'  # Default language for translations
+LISAN_ALLOWED_LANGUAGES = ['en', 'am', 'or', 'tg']  # Languages supported by Lisan
+```
+
+#### Step 1.1: Add Lisan Middleware
+
+Make sure to include `Lisan`'s middleware in your `MIDDLEWARE` settings for automatic language detection and management:
+
+```python
+MIDDLEWARE = [
+    ...
+    'lisan.middleware.LanguageMiddleware',  # Lisan middleware for handling language preferences
+    'django.middleware.common.CommonMiddleware',
+    ...
+]
+```
+
 ## Usage
 
 ### 1. Adding Translation Support to Models
@@ -31,146 +53,188 @@ Example:
 
 ```python
 from django.db import models
+from pygments.lexers import get_all_lexers
+from pygments.styles import get_all_styles
 from lisan import LisanModelMixin
-from django.utils.translation import gettext_lazy as _
 
-class BranchOffice(LisanModelMixin, models.Model):
-    lisan_fields = ['name', 'address']
+LEXERS = [item for item in get_all_lexers() if item[1]]
+LANGUAGE_CHOICES = sorted([(item[1][0], item[0]) for item in LEXERS])
+STYLE_CHOICES = sorted([(item, item) for item in get_all_styles()])
 
-    name = models.CharField(max_length=256, verbose_name=_("name"))
-    address = models.CharField(max_length=256, verbose_name=_("address"))
+# Add the LisanModelMixin mixin
+class Snippet(LisanModelMixin, models.Model):
+    lisan_fields = ['title', 'language', 'style']  # Fields to be translated
+
+    created = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=100, blank=True, default='')
+    code = models.TextField()
+    linenos = models.BooleanField(default=False)
+    language = models.CharField(choices=LANGUAGE_CHOICES, default='python', max_length=100)
+    style = models.CharField(choices=STYLE_CHOICES, default='friendly', max_length=100)
 
     class Meta:
-        verbose_name = _("branch office")
-        verbose_name_plural = _("branch offices")
-        ordering = ("-created_at",)
-        db_table = "branch_offices"
+        ordering = ['created']
+```
 
-    def __str__(self):
-        return self.name
+Once the model is defined, run the following commands to create and apply migrations:
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
 ```
 
 ### 2. Managing Translations in Django Admin
 
-To enable translations management in the Django admin, use `LisanAdminMixin` in your admin class.
+To enable translation management in the Django admin, use `LisanAdminMixin` in your admin class.
 
 Example:
 
 ```python
 from django.contrib import admin
 from lisan import LisanAdminMixin
-from .models import BranchOffice
+from .models import Snippet
 
-@admin.register(BranchOffice)
-class BranchOfficeAdmin(LisanAdminMixin, admin.ModelAdmin):
-    list_filter = ('created_at',)
-    ordering = ('-created_at',)
+@admin.register(Snippet)
+class SnippetAdmin(LisanAdminMixin, admin.ModelAdmin):
+    list_filter = ('created',)
+    ordering = ('-created',)
 ```
 
 ### 3. Accessing Translations in Code
 
-You can set and get translations (lisans) using the provided methods.
+You can set and get translations using the provided methods.
 
 #### Setting a Translation
 
-Example:
-
 ```python
-office = BranchOffice.objects.create(name="Main Office", address="123 Main St")
-office.set_lisan('am', name="ቆልፌ ቀራኒዮ ክፍለ ከተማ", address="123 ዋና መንገድ")
+snippet = Snippet.objects.create(title="Code Snippet Example", code="def example_function():\n    return 'Hello, World!'")
+snippet.set_lisan('am', title="ኮድ ቅርጸት ምሳሌ")
 ```
 
 #### Getting a Translation
 
-Example:
+You can retrieve translations with a fallback mechanism. For example, if a translation in Amharic is not available, it will default to the base language (e.g., English).
 
 ```python
-amharic_name = office.get_lisan_field('name', 'am')
-print(amharic_name)  # Output: ቆልፌ ቀራኒዮ ክፍለ ከተማ
+amharic_title = snippet.get_lisan_field('title', 'am')
+print(amharic_title)  # Output: ኮድ ቅርጸት ምሳሌ
 
-english_name = office.get_lisan_field('name', 'en')
-print(english_name)  # Output: Main Office
+english_title = snippet.get_lisan_field('title', 'en')
+print(english_title)  # Output: Code Snippet Example
 ```
 
-### 4. Handling Languages and Fallbacks
+## API Usage
 
-Lisan provides a fallback mechanism for when a translation is not available in the requested language:
+Here is how to use the API to create and retrieve a translated snippet.
 
-Example:
+### 1. Creating a Snippet with Translations
 
-```python
-default_name = office.get_lisan_field('name', 'fr', fallback_to_default=True)
-print(default_name)  # Fallbacks to the default language (English) if French is not available.
+To create a snippet with translations, send a `POST` request to the appropriate API endpoint with the following payload:
+
+**Request Body**:
+
+```json
+{
+    "title": "Code Snippet Example",
+    "code": "def example_function():\n    return 'Hello, World!'",
+    "linenos": true,
+    "language": "python",
+    "style": "friendly",
+    "translations": [
+        {
+            "language_code": "en",
+            "title": "Code Snippet Example",
+            "language": "python",
+            "style": "friendly"
+        },
+        {
+            "language_code": "am",
+            "title": "ኮድ ቅርጸት ምሳሌ",
+            "language": "ፒያዝ",
+            "style": "ወዳጅ"
+        },
+        {
+            "language_code": "or",
+            "title": "Miseensa Koodii Fakkeenya",
+            "language": "python",
+            "style": "bareedaa"
+        },
+        {
+            "language_code": "tg",
+            "title": "ምሳሌ ውሂብ ቅርጸት",
+            "language": "python",
+            "style": "ናብኣይ"
+        }
+    ]
+}
 ```
 
-### 5. Using Lisan in Views and Serializers
+### 2. Retrieving a Snippet with a Specific Translation
 
-You can integrate `Lisan` with Django REST framework by using `LisanSerializerMixin` in your serializers. Here’s how you can implement it:
+To retrieve a snippet in a specific language, send a `GET` request with the appropriate `Accept-Language` header to specify the desired language (e.g., `am` for Amharic, `or` for Oromo).
 
-#### Serializers Example:
+**Request Example**:
+
+```http
+GET /api/snippets/1/
+Accept-Language: am
+```
+
+The response will return the snippet information in the requested language if available, or it will fallback to the default language:
+
+**Response Example**:
+
+```json
+{
+    "id": 1,
+    "title": "ኮድ ቅርጸት ምሳሌ",
+    "code": "def example_function():\n    return 'Hello, World!'",
+    "linenos": true,
+    "language": "ፒያዝ",
+    "style": "ወዳጅ"
+}
+```
+
+### 3. Serializer for Snippets
+
+Use `LisanSerializerMixin` in your serializer to handle translations.
 
 ```python
 from rest_framework import serializers
-from lisan import LisanSerializerMixin
-from .models import BranchOffice
+from lisan.serializers import LisanSerializerMixin
+from .models import Snippet
 
-class BranchOfficeResponseSerializer(LisanSerializerMixin, serializers.ModelSerializer):
-    object_state = DataLookupSerializer()
-    created_by = UserSerializer()
-
+class SnippetSerializer(LisanSerializerMixin, serializers.ModelSerializer):
     class Meta:
-        model = BranchOffice
-        fields = ['id', 'name', 'address', 'object_state', 'created_by', 'created_at', 'updated_at']
-
-class BranchOfficeSerializer(LisanSerializerMixin):
-    class Meta:
-        model = BranchOffice
-        fields = ['id', 'name', 'address', 'object_state']
-
-    def to_representation(self, instance):
-        return BranchOfficeResponseSerializer(instance, context=self.context).to_representation(instance)
-
-    def create(self, validated_data):
-        auth_user = self.context['request'].user
-
-        if not validated_data.get('object_state'):
-            validated_data["object_state"] = DataLookup.objects.get(
-                type=ObjectStateType.TYPE.value,
-                is_default=True
-            )
-
-        validated_data["created_by"] = auth_user
-        return super().create(validated_data)
+        model = Snippet
+        fields = ['id', 'title', 'code', 'linenos', 'language', 'style']
 ```
 
-#### ViewSet Example:
+### 4. Snippet ViewSet
+
+Define your `SnippetViewSet` and make sure to pass the request to the serializer context for handling language-specific responses.
 
 ```python
-from rest_framework import viewsets, filters
-from drf_spectacular.utils import extend_schema
-from django_filters.rest_framework import DjangoFilterBackend
-from .serializers import BranchOfficeSerializer, BranchOfficeResponseSerializer
-from .models import BranchOffice
+from rest_framework import viewsets
+from .models import Snippet
+from .serializers import SnippetSerializer
 
-@extend_schema(responses=BranchOfficeResponseSerializer)
-class BranchOfficeViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, BranchOfficeAccessPolicy]
-    serializer_class = BranchOfficeSerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['name']
-
-    def get_queryset(self):
-        return self.permission_classes[1].scope_queryset(self.request, BranchOffice.objects.all())
+class SnippetViewSet(viewsets.ModelViewSet):
+    queryset = Snippet.objects.all()
+    serializer_class = SnippetSerializer
 
     def get_serializer_context(self):
+        """
+        Adds custom context to the serializer.
+        """
         context = super().get_serializer_context()
-        context['request'] = self.request
+        context['request'] = self.request  # Pass request context for translation handling
         return context
 ```
 
 ### Summary
 
-This `README.md` provides a comprehensive overview of the `django-lisan` package, including installation, configuration, and usage instructions. It’s designed to be user-friendly and informative, helping users get started with the package quickly.
+This `README.md` provides a comprehensive overview of the `django-lisan` package, including settings, installation, configuration, and usage instructions. It covers how to create and retrieve translations for Django models and includes API examples for managing translated content.
 
 ## Contributing
 
@@ -179,7 +243,3 @@ If you find any issues or have suggestions for improvements, feel free to open a
 ## License
 
 Django Lisan is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
-
----
-
-This updated README includes practical examples of how `Lisan` can be integrated into a Django project, from models to admin and serializers. The added sections should provide users with a clear and detailed guide on using `Lisan` effectively in their projects.
