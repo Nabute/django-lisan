@@ -25,8 +25,11 @@ class LanguageMiddleware(MiddlewareMixin):
         Args:
             request: The HTTP request object.
         """
-        language_code = request.headers.get(
-            'Accept-Language',
-            getattr(settings, 'LISAN_DEFAULT_LANGUAGE', 'en')
+        language_code = (
+            request.GET.get('lang') or
+            getattr(request.user, 'profile.language_preference', None) or
+            request.COOKIES.get('language') or
+            request.headers.get('Accept-Language') or
+            'en'
         )
         request.language_code = language_code
