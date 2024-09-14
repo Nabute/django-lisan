@@ -10,6 +10,8 @@ class LisanAdminMixin(admin.ModelAdmin):
     localized content within the Django admin interface.
     """
 
+    lisan_display_format = "{field_name} ({language_code})"
+
     def __init__(self, *args, **kwargs):
         """
         Initialize the LisanAdminMixin.
@@ -31,12 +33,12 @@ class LisanAdminMixin(admin.ModelAdmin):
         for field_name in self.model.lisan_fields:
             method_name = f'get_lisan_{field_name}'
             setattr(self, method_name, self._create_lisan_getter(field_name))
-            
-            # Set a short description for the admin list display
-            short_description = f'{field_name.capitalize()} (EN)'
+
+            short_description = self.lisan_display_format.format(
+                field_name=field_name.capitalize(), language_code='EN'
+            )
             getattr(self, method_name).short_description = short_description
 
-            # Add the generated method to the list_display
             if 'list_display' in self.__dict__:
                 self.list_display += (method_name,)
             else:

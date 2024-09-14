@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.db import models, IntegrityError, transaction
 from django.core.exceptions import ObjectDoesNotExist, FieldDoesNotExist
 from .metaclasses import LisanModelMeta
+from .utils import get_translation_service
 
 
 class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
@@ -102,45 +104,103 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
         except Exception as e:
             raise e
 
+    def set_bulk_lisans(self, translations):
+        """
+        Set or update translations for multiple languages in bulk.
+
+        Args:
+            translations (dict): A dictionary where each key is a language
+                                code (str) and the corresponding value is a
+                                dictionary of fields (dict) to be set or
+                                updated for that language.
+                                
+                                Example:
+                                {
+                                    'en': {
+                                        'field1': 'value1',
+                                        'field2': 'value2'
+                                    },
+                                    'fr': {
+                                        'field1': 'valeur1',
+                                        'field2': 'valeur2'
+                                    }
+                                }
+
+        Behavior:
+            This method updates the Lisan (translation) model for each
+            specified language in bulk. For each language code in the
+            `translations` dictionary, the corresponding fields
+            and their values are passed to the `set_lisan` method for
+            that language.
+
+        Transaction:
+            The operation is wrapped in a database transaction to ensure
+            that either all translations are successfully updated or none
+            of them are (atomic operation).
+
+        Raises:
+            Exception: Any exceptions encountered during the transaction
+            will cause the entire operation to roll back, ensuring data
+            consistency.
+        """
+        with transaction.atomic():
+            for language_code, fields in translations.items():
+                self.set_lisan(language_code, **fields)
+
     def get_lisan_field(
-        self, field_name, language_code=None, fallback_to_default=True
-    ):
+            self, field_name,
+            language_code=None,
+            fallback_languages=None,
+            auto_translate=False):
         """
         Retrieve a specific field's value from the Lisan (translation) model.
 
         Args:
             field_name (str): The name of the field to retrieve.
-            language_code (str): The language code to retrieve the field for.
-                                 Defaults to the current language.
-            fallback_to_default (bool): Whether to fallback to the default
-                                        language ('en') if the field is not
-                                        found in the specified language.
-                                        Defaults to True.
+            language_code (str, optional): The language code to retrieve the
+                                           field for. Defaults to the current
+                                           language if not provided.
+            fallback_languages (list, optional): A list of fallback language
+                                                 codes to try if the field is
+                                                 not found in the specified
+                                                 language. Defaults to a list
+                                                 of fallback languages set in
+                                                 the configuration or ['en'].
+            auto_translate (bool, optional): Whether to automatically translate
+                                             the field value if it is not found
+                                             in the specified language.
+                                             Defaults to False.
 
         Returns:
-            Any: The value of the specified field.
+            Any: The value of the specified field from the Lisan translation
+                 model. If the field is not found in any of the provided
+                 languages, it returns the default field value from the main
+                 model. If `auto_translate` is True, it attempts to translate
+                 the value to the requested language if not found.
 
         Raises:
             AttributeError: If the field does not exist in either the model or
                             its translations.
         """
         language_code = language_code or self._current_language
-        try:
-            lisan = self.get_lisan(language_code)
+        fallback_languages = fallback_languages or getattr(
+            settings, 'LISAN_FALLBACK_LANGUAGES', ['en']
+        )
+        # Try to get the field from available translations
+        for lang in [language_code] + fallback_languages:
+            lisan = self.get_lisan(lang)
             if lisan and hasattr(lisan, field_name):
                 return getattr(lisan, field_name)
-            elif fallback_to_default:
-                default_lisan = self.get_lisan('en')
-                if default_lisan and hasattr(default_lisan, field_name):
-                    return getattr(default_lisan, field_name)
-            return getattr(self, field_name)
-        except AttributeError:
-            raise AttributeError(
-                f"Field '{field_name}' does not exist in either the model or "
-                "its translations."
-            )
-        except Exception as e:
-            raise e
+        
+        # If auto-translation is enabled, use the translation service
+        if auto_translate:
+            original_text = getattr(self, field_name)
+            translation_service = get_translation_service()
+            return translation_service.translate(
+                original_text, target_language=language_code)
+
+        # Fallback to default field
+        return getattr(self, field_name)
 
     def set_current_language(self, language_code):
         """
@@ -156,3 +216,31 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
         if not language_code:
             raise ValueError("Language code must be provided")
         self._current_language = language_code
+
+    def is_field_translatable(self, field_name):
+        """
+        Determine if the given field is translatable for this instance.
+
+        Args:
+            field_name (str): The name of the field to check for
+            translatability.
+
+        Returns:
+            bool: True if the field is translatable (i.e., exists in
+            `lisan_fields`), False otherwise.
+
+        Behavior:
+            This method checks if the specified field is considered
+            translatable by verifying its presence in the `lisan_fields`
+            attribute. The `lisan_fields` attribute is expected to
+            contain a list or set of field names that are marked for
+            translation.
+
+        Example:
+            >>> instance.is_field_translatable('title')
+            True
+
+            >>> instance.is_field_translatable('non_translatable_field')
+            False
+        """
+        return field_name in self.lisan_fields
