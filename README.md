@@ -1,6 +1,6 @@
 # Lisan - ልሳን
 
-**means**: A language
+**means**: A language in Amharic (Ethiopian Language)
 
 **Lisan** is a Django package that simplifies the process of adding translation support to model fields in Django projects. With `Lisan`, you can easily manage multilingual content within your Django models, API, and admin interface.
 
@@ -10,6 +10,27 @@
 - **Admin Integration:** Seamlessly manage translations through the Django admin interface.
 - **Fallback Mechanism:** Fallback to the default language if a translation is not available.
 - **Dynamic Getter Methods:** Automatically generate methods to access translated fields.
+- **Pluggable Translation Services:** Support for external services like Google Translate to automatically translate content.
+- **Customizable Admin Display:** Configure how translations are displayed in the Django admin interface.
+- **Flexible Field Types:** Add translation support for various field types like `CharField`, `TextField`, and `JSONField`.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Lisan Settings](#lisan-settings)
+- [Usage](#usage)
+  - [Adding Translation Support to Models](#1-adding-translation-support-to-models)
+  - [Managing Translations in Django Admin](#2-managing-translations-in-django-admin)
+  - [Accessing Translations in Code](#3-accessing-translations-in-code)
+- [API Usage](#api-usage)
+  - [Creating a Snippet with Translations](#1-creating-a-snippet-with-translations)
+  - [Retrieving a Snippet with a Specific Translation](#2-retrieving-a-snippet-with-a-specific-translation)
+  - [Handling User Preferences for Translations](#handling-user-preferences-for-translations)
+- [Pluggable Translation Services](#pluggable-translation-services)
+  - [Creating Custom Translation Services](#creating-custom-translation-services)
+- [Testing Translations](#testing-translations)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Installation
 
@@ -30,6 +51,8 @@ To start using `Lisan` in your project, you need to configure the language setti
 ```python
 LISAN_DEFAULT_LANGUAGE = 'en'  # Default language for translations
 LISAN_ALLOWED_LANGUAGES = ['en', 'am', 'or', 'tg']  # Languages supported by Lisan
+LISAN_FALLBACK_LANGUAGES = ['fr', 'es', 'en']  # Customize fallback languages
+LISAN_DEFAULT_TRANSLATION_SERVICE = 'yourapp.google_translate_service.GoogleTranslateService'  # Pluggable translation service
 ```
 
 #### Step 1.1: Add Lisan Middleware
@@ -55,24 +78,13 @@ Example:
 
 ```python
 from django.db import models
-from pygments.lexers import get_all_lexers
-from pygments.styles import get_all_styles
 from lisan import LisanModelMixin
 
-LEXERS = [item for item in get_all_lexers() if item[1]]
-LANGUAGE_CHOICES = sorted([(item[1][0], item[0]) for item in LEXERS])
-STYLE_CHOICES = sorted([(item, item) for item in get_all_styles()])
-
-# Add the LisanModelMixin mixin
 class Snippet(LisanModelMixin, models.Model):
-    lisan_fields = ['title', 'language', 'style']  # Fields to be translated
-
-    created = models.DateTimeField(auto_now_add=True)
+    lisan_fields = ['title', 'description']  # Fields to be translated
     title = models.CharField(max_length=100, blank=True, default='')
-    code = models.TextField()
-    linenos = models.BooleanField(default=False)
-    language = models.CharField(choices=LANGUAGE_CHOICES, default='python', max_length=100)
-    style = models.CharField(choices=STYLE_CHOICES, default='friendly', max_length=100)
+    description = models.TextField(blank=True, default='')
+    created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['created']
@@ -100,6 +112,7 @@ from .models import Snippet
 class SnippetAdmin(LisanAdminMixin, admin.ModelAdmin):
     list_filter = ('created',)
     ordering = ('-created',)
+    lisan_display_format = "{field_name} ({language_code})"  # Customizable admin display format
 ```
 
 ### 3. Accessing Translations in Code
@@ -109,17 +122,17 @@ You can set and get translations using the provided methods.
 #### Setting a Translation
 
 ```python
-snippet = Snippet.objects.create(title="Code Snippet Example", code="def example_function():\n    return 'Hello, World!'")
-snippet.set_lisan('am', title="ኮድ ቅርጸት ምሳሌ")
+snippet = Snippet.objects.create(title="Code Snippet Example", description="Example Description")
+snippet.set_lisan('am', title="ኮድ ቅርጸት ምሳሌ", description="እንቁ ምሳሌ")
 ```
 
-#### Getting a Translation
+#### Getting a Translation with Fallback and Auto-Translate
 
-You can retrieve translations with a fallback mechanism. For example, if a translation in Amharic is not available, it will default to the base language (e.g., English).
+You can retrieve translations with a fallback mechanism or even auto-translate content using an external service.
 
 ```python
-amharic_title = snippet.get_lisan_field('title', 'am')
-print(amharic_title)  # Output: ኮድ ቅርጸት ምሳሌ
+amharic_title = snippet.get_lisan_field('title', 'am', auto_translate=True)
+print(amharic_title)  # Output: ኮድ ቅርጸት ምሳሌ (if available) or the auto-translated version
 
 english_title = snippet.get_lisan_field('title', 'en')
 print(english_title)  # Output: Code Snippet Example
@@ -138,34 +151,12 @@ To create a snippet with translations, send a `POST` request to the appropriate 
 ```json
 {
     "title": "Code Snippet Example",
-    "code": "def example_function():\n    return 'Hello, World!'",
-    "linenos": true,
-    "language": "python",
-    "style": "friendly",
+    "description": "Example Description",
     "translations": [
-        {
-            "language_code": "en",
-            "title": "Code Snippet Example",
-            "language": "python",
-            "style": "friendly"
-        },
         {
             "language_code": "am",
             "title": "ኮድ ቅርጸት ምሳሌ",
-            "language": "ፒያዝ",
-            "style": "ወዳጅ"
-        },
-        {
-            "language_code": "or",
-            "title": "Miseensa Koodii Fakkeenya",
-            "language": "python",
-            "style": "bareedaa"
-        },
-        {
-            "language_code": "tg",
-            "title": "ምሳሌ ውሂብ ቅርጸት",
-            "language": "python",
-            "style": "ናብኣይ"
+            "description": "እንቁ ምሳሌ"
         }
     ]
 }
@@ -173,7 +164,7 @@ To create a snippet with translations, send a `POST` request to the appropriate 
 
 ### 2. Retrieving a Snippet with a Specific Translation
 
-To retrieve a snippet in a specific language, send a `GET` request with the appropriate `Accept-Language` header to specify the desired language (e.g., `am` for Amharic, `or` for Oromo).
+To retrieve a snippet in a specific language, send a `GET` request with the appropriate `Accept-Language` header to specify the desired language (e.g., `am` for Amharic).
 
 **Request Example**:
 
@@ -190,57 +181,85 @@ The response will return the snippet information in the requested language if av
 {
     "id": 1,
     "title": "ኮድ ቅርጸት ምሳሌ",
-    "code": "def example_function():\n    return 'Hello, World!'",
-    "linenos": true,
-    "language": "ፒያዝ",
-    "style": "ወዳጅ"
+    "description": "እንቁ ምሳሌ"
 }
 ```
 
-### 3. Serializer for Snippets
+### Handling User Preferences for Translations
 
-Use `LisanSerializerMixin` in your serializer to handle translations.
+You can dynamically handle user preferences for translations based on the `Accept-Language` header or custom user settings.
 
 ```python
-from rest_framework import serializers
-from lisan.serializers import LisanSerializerMixin
-from .models import Snippet
-
 class SnippetSerializer(LisanSerializerMixin, serializers.ModelSerializer):
     class Meta:
         model = Snippet
-        fields = ['id', 'title', 'code', 'linenos', 'language', 'style']
+        fields = ['id', 'title', 'description']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        language_code = request.headers.get('Accept-Language', 'en')
+        representation['title'] = instance.get_lisan_field('title', language_code)
+        return representation
 ```
 
-### 4. Snippet ViewSet
+## Pluggable Translation Services
 
-Define your `SnippetViewSet` and make sure to pass the request to the serializer context for handling language-specific responses.
+The `Lisan` package supports pluggable translation services, allowing you to integrate with third-party APIs like Google Translate for automatic translations. You can configure this via the `LISAN_DEFAULT_TRANSLATION_SERVICE` setting.
+
+### Creating Custom Translation Services
+
+You can create custom translation services by implementing the `BaseTranslationService` class.
+
+Example using Google Translate:
 
 ```python
-from rest_framework import viewsets
-from .models import Snippet
-from .serializers import SnippetSerializer
+# google_translate_service.py
+from googletrans import Translator
+from lisan.translation_services import BaseTranslationService
 
-class SnippetViewSet(viewsets.ModelViewSet):
-    queryset = Snippet.objects.all()
-    serializer_class = SnippetSerializer
+class GoogleTranslateService(BaseTranslationService):
+    def __init__(self):
+        self.translator = Translator()
 
-    def get_serializer_context(self):
-        """
-        Adds custom context to the serializer.
-        """
-        context = super().get_serializer_context()
-        context['request'] = self.request  # Pass request context for translation handling
-        return context
+    def translate(self, text, target_language):
+        return self.translator.translate(text, dest=target_language).text
 ```
 
-### Summary
+### Setting up the Service
 
-This `README.md` provides a comprehensive overview of the `lisan` package, including settings, installation, configuration, and usage instructions. It covers how to create and retrieve translations for Django models and includes API examples for managing translated content.
+To configure your application to use this service, simply set it in the `LISAN_DEFAULT_TRANSLATION_SERVICE` setting in `settings.py`:
+
+```python
+LISAN_DEFAULT_TRANSLATION_SERVICE = 'yourapp.google_translate_service.GoogleTranslateService'
+```
+
+## Testing Translations
+
+To ensure that your translations are handled correctly, here’s an example of how you can write tests for translated fields:
+
+```python
+from django.test import TestCase
+from .models import Snippet
+
+class SnippetTestCase(TestCase):
+    def setUp(self):
+        self.snippet = Snippet.objects.create(title="Hello World", description="Description Example")
+
+    def test_translation_set(self):
+        self.snippet.set_lisan('fr', title="Bonjour le monde", description="Exemple de description")
+        self.assertEqual(self.snippet.get_lisan_field('title', 'fr'), "Bonjour le monde")
+
+    def test_fallback(self):
+        # Test that it falls back to English if no French translation is available
+        self.assertEqual(self.snippet.get_lisan_field('title', 'fr'), "Hello World")
+```
+
+This testing structure ensures that your translations work as expected, using both direct translations and fallback mechanisms when translations are unavailable.
 
 ## Contributing
 
-If you find any issues or have suggestions for improvements, feel free to open an issue or submit a pull request on GitHub.
+If you find any issues or have suggestions for improvements, feel free to open an issue or submit a pull request on GitHub. Contributions are always welcome.
 
 ## License
 
