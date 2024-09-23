@@ -1,3 +1,31 @@
+## [v0.1.2] - 2024-10-05
+
+This release focuses on refining the multilingual handling capabilities by introducing additional flexibility in language detection and ensuring compatibility with supported languages.
+
+### Added
+- **Enhanced Language Detection in Middleware**:
+  - **Improved `LanguageMiddleware`**: The `LanguageMiddleware` now includes more robust language detection mechanisms:
+    - It checks for the `lang` query parameter, user profile language preference, cookies, and the `Accept-Language` header in a prioritized manner.
+    - Added support for configurable fallback languages via the `LISAN_DEFAULT_LANGUAGE` setting.
+    - Introduced validation to ensure the selected language is within the list of supported languages, using the new `LISAN_ALLOWED_LANGUAGES` setting.
+    - Refined the `Accept-Language` header parsing to handle complex header values and gracefully fallback when necessary.
+  
+  - **Support for Configurable Allowed Languages**: A new setting, `LISAN_ALLOWED_LANGUAGES`, has been added to specify the languages supported by the application. If a language from the request is not in this list, the middleware falls back to the default language.
+  
+### Configuration Changes
+- **New Settings**:
+  - `LISAN_ALLOWED_LANGUAGES`: A list of language codes that the application supports. The `LanguageMiddleware` ensures that only these languages are applied to the request. Defaults to `[LISAN_DEFAULT_LANGUAGE]`.
+
+### Fixed
+- Improved robustness in the `LanguageMiddleware` by ensuring safe access to user profile attributes and handling of missing or malformed `Accept-Language` headers.
+- Prevented invalid language codes from being set on requests by validating against the new `LISAN_ALLOWED_LANGUAGES` setting.
+
+### Migration Notes
+No database migrations are required for this release. However, to take advantage of the new language validation features, developers should define `LISAN_ALLOWED_LANGUAGES` in `settings.py`.
+
+---
+
+
 ## [v0.1.1] - 2024-09-14
 
 This version brings enhanced flexibility, making the `lisan` package highly adaptable for multilingual projects by enabling external services for automated translations while maintaining a customizable architecture.

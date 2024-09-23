@@ -1,4 +1,5 @@
 from django.utils.deprecation import MiddlewareMixin
+from django.conf import settings
 
 
 class LanguageMiddleware(MiddlewareMixin):
@@ -24,11 +25,49 @@ class LanguageMiddleware(MiddlewareMixin):
         Args:
             request: The HTTP request object.
         """
+        # Fetch the default language from settings, fallback to 'en'
+        default_language = getattr(settings, 'LISAN_DEFAULT_LANGUAGE', 'en')
+        supported_language = getattr(settings, 'LISAN_ALLOWED_LANGUAGES', [default_language])
+        
+        # Safe retrieval of user profile language preference
+        language_preference = None
+        if hasattr(request, 'user') and hasattr(request.user, 'profile') and hasattr(request.user.profile, 'language_preference'):
+            language_preference = request.user.profile.language_preference
+
+        # Extract the language code in order of precedence
         language_code = (
             request.GET.get('lang') or
-            getattr(request.user, 'profile.language_preference', None) or
+            language_preference or
             request.COOKIES.get('language') or
-            request.headers.get('Accept-Language') or
-            'en'
+            self.parse_accept_language(request.headers.get('Accept-Language')) or
+            default_language
         )
+
+        # Validate against supported languages
+        if language_code not in supported_language:
+            language_code = default_language
+
+        # Set the language code on the request object
         request.language_code = language_code
+
+    def parse_accept_language(self, accept_language_header):
+        """
+        Parse the 'Accept-Language' header and extract the first language code.
+        If the header is malformed or empty, return None.
+
+        Args:
+            accept_language_header: The value of the 'Accept-Language' header.
+
+        Returns:
+            A string representing the best matched language code, or None if not found.
+        """
+        if not accept_language_header:
+            return None
+
+        # Split on commas and take the first part before any semicolon
+        languages = accept_language_header.split(',')
+        if languages:
+            primary_language = languages[0].split(';')[0].strip()
+            return primary_language if primary_language else None
+        
+        return None
