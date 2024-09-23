@@ -1,4 +1,4 @@
-## [v0.1.2] - 2024-10-05
+## [v0.1.2] - 2024-09-23
 
 This release focuses on refining the multilingual handling capabilities by introducing additional flexibility in language detection and ensuring compatibility with supported languages.
 
