@@ -83,29 +83,40 @@ class LisanModelMeta(models.base.ModelBase):
         Returns:
             Model: The newly created model class with multilingual support.
         """
-        # Gather the fields intended for Lisan support
-        lisan_fields = {
-            key: value for key, value in attrs.items()
-            if isinstance(value, models.Field)
-        }
-
-        # Create the new model class
-        new_class = super().__new__(cls, name, bases, attrs)
-
-        # If the new class includes LisanModelMixin, generate the Lisan model
         if 'LisanModelMixin' in [base.__name__ for base in bases]:
-            lisan_model = create_lisan_model(new_class, lisan_fields)
+            lisan_fields = attrs.get('lisan_fields')
+            
+            # If `lisan_fields` is not defined, raise an exception
+            if lisan_fields is None:
+                raise AttributeError(
+                    f"{name} must define 'lisan_fields' when using LisanModelMixin."
+                )
+
+            # Filter translatable fields by checking if they are defined in lisan_fields
+            translatable_fields = {
+                key: value for key, value in attrs.items()
+                if isinstance(value, models.Field) and key in lisan_fields
+            }
+
+            # Create the new model class
+            new_class = super().__new__(cls, name, bases, attrs)
+
+            # Generate the Lisan model
+            lisan_model = create_lisan_model(new_class, translatable_fields)
             setattr(new_class, 'Lisan', lisan_model)
 
-            # Add a ManyToManyField linking the original model to
-            # the Lisan model
+            # Add a ForeignKey linking the original model to the Lisan model
             new_class.add_to_class(
                 'lisans',
                 models.ManyToManyField(
                     lisan_model,
-                    related_name="+",
-                    blank=True,
+                    related_name=f"{lisan_model.__name__.lower()}_set",
+                    blank=True
                 )
             )
+
+        else:
+            # Create the new model class if not using the mixin
+            new_class = super().__new__(cls, name, bases, attrs)
 
         return new_class
