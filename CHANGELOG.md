@@ -1,3 +1,27 @@
+## [v0.1.3] - 2024-09-28
+
+This release addresses a critical issue in the `Lisan` model where all fields from the main model were being included in the migration, even though only the fields defined in `lisan_fields` were expected to be migrated.
+
+### Fixed
+- **Resolved Migration Issue for Lisan Model**:
+  - Fixed an issue where the `Lisan` model migrations included all fields from the main model instead of only those listed in the `lisan_fields` attribute.
+  - The `LisanModelMeta` metaclass now correctly filters out fields that are not translatable based on the `lisan_fields` list, ensuring that only the intended fields are migrated.
+  - Added validation to ensure that any model using `LisanModelMixin` must define `lisan_fields`. If `lisan_fields` is missing, an `AttributeError` is raised during model initialization.
+
+### Improved
+- **Automatic Field Filtering in Lisan Model**:
+  - The dynamic `Lisan` model generation now strictly adheres to the `lisan_fields` specification, dynamically creating translation models with only the specified translatable fields.
+
+### Migration Notes
+- A new migration is required to fix the schema of previously generated migrations for the `Lisan` model. After upgrading, run the following commands:
+  
+  ```bash
+  python manage.py makemigrations
+  python manage.py migrate
+  ```
+
+---
+
 ## [v0.1.2] - 2024-09-23
 
 This release focuses on refining the multilingual handling capabilities by introducing additional flexibility in language detection and ensuring compatibility with supported languages.
