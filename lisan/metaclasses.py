@@ -21,6 +21,7 @@ def create_lisan_model(model_cls, fields):
 
     # Define metadata for the dynamically created Lisan model
     class Meta:
+        app_label = model_cls._meta.app_label
         unique_together = ('language_code', model_cls._meta.pk.name)
         db_table = f"{model_cls._meta.db_table}_lisan"
         verbose_name = f"{model_cls._meta.verbose_name} lisan"
