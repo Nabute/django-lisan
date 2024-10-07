@@ -190,7 +190,11 @@ class LisanSerializerMixin(serializers.ModelSerializer):
                              if an unsupported language code is provided.
         """
         if not translations:
-            raise ValidationError("Translations are required.")
+            # Skip translation validation for partial updates
+            # if no translation data is provided
+            if not partial:
+                raise ValidationError("Translations are required.")
+            return
 
         translation_languages = {
             translation['language_code'] for translation in translations

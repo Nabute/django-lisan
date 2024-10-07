@@ -1,3 +1,14 @@
+## [v0.1.4] - 2024-10-07
+
+This release introduces improvements in the translation validation process for partial updates, ensuring that translations are properly validated unless explicitly omitted in partial updates.
+
+### Improved
+- **Translation Validation for Partial Updates**:
+  - Added logic to skip translation validation if no translation data is provided and the update is marked as a partial update. This ensures that translation validation does not unnecessarily block partial updates.
+  - If the update is **not** partial, a `ValidationError` will be raised if translations are missing, ensuring consistency for full updates.
+
+---
+
 ## [v0.1.3] - 2024-09-28
 
 This release addresses a critical issue in the `Lisan` model where all fields from the main model were being included in the migration, even though only the fields defined in `lisan_fields` were expected to be migrated.

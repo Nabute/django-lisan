@@ -92,6 +92,6 @@ class LisanAdminMixin(admin.ModelAdmin):
         Returns:
             list: A list of inline classes to be displayed in the admin.
         """
-        if hasattr(self.model, 'lisan_fields'):
+        if getattr(self.model, 'lisan_fields', None):
             return [self.get_lisan_inline()]
         return []
