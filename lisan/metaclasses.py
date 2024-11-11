@@ -1,8 +1,10 @@
 from django.db import models
+from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
 
-def create_lisan_model(model_cls, fields):
+def create_lisan_model(
+        model_cls, fields, primary_key_type=models.BigAutoField):
     """
     Dynamically create a Lisan model for the given model class.
 
@@ -36,6 +38,19 @@ def create_lisan_model(model_cls, fields):
             verbose_name=_("language code")
         ),
     }
+
+    if primary_key_type == models.UUIDField:
+        import uuid
+        # Configure UUIDField with auto-generation
+        attrs['id'] = models.UUIDField(
+            primary_key=True,
+            default=uuid.uuid4,
+            editable=False,
+            verbose_name=_("id")
+        )
+    else:
+        # Default primary key field setup
+        attrs['id'] = primary_key_type(primary_key=True)
 
     # Add the specified fields to the Lisan model
     for field_name, field in fields.items():
@@ -86,24 +101,37 @@ class LisanModelMeta(models.base.ModelBase):
         """
         if 'LisanModelMixin' in [base.__name__ for base in bases]:
             lisan_fields = attrs.get('lisan_fields')
-            
+
             # If `lisan_fields` is not defined, raise an exception
             if lisan_fields is None:
                 raise AttributeError(
-                    f"{name} must define 'lisan_fields' when using LisanModelMixin."
+                    f"{name} must define 'lisan_fields' when using LisanModelMixin."  # noqa
                 )
 
-            # Filter translatable fields by checking if they are defined in lisan_fields
+            # Filter translatable fields by checking if they are
+            # defined in lisan_fields
             translatable_fields = {
                 key: value for key, value in attrs.items()
                 if isinstance(value, models.Field) and key in lisan_fields
             }
 
+            # Determine primary key type, checking model-specific
+            # setting first, then global
+            primary_key_type = attrs.get(
+                'lisan_primary_key_type',  # Model-specific setting
+                getattr(
+                    settings,
+                    'LISAN_PRIMARY_KEY_TYPE',
+                    models.BigAutoField
+                )
+            )
+
             # Create the new model class
             new_class = super().__new__(cls, name, bases, attrs)
 
             # Generate the Lisan model
-            lisan_model = create_lisan_model(new_class, translatable_fields)
+            lisan_model = create_lisan_model(
+                new_class, translatable_fields, primary_key_type)
             setattr(new_class, 'Lisan', lisan_model)
 
             # Add a ForeignKey linking the original model to the Lisan model
