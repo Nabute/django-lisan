@@ -3,6 +3,24 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 
+class TranslationSerializer(serializers.Serializer):
+    """
+    Serializer for each translation entry, containing a
+    language code and the translatable fields.
+    """
+    language_code = serializers.CharField()
+
+    def __init__(self, *args, **kwargs):
+        # Dynamically add fields based on `lisan_fields`
+        # provided by the main model
+        lisan_fields = kwargs.pop('lisan_fields', [])
+        super().__init__(*args, **kwargs)
+
+        for field in lisan_fields:
+            self.fields[field] = serializers.CharField(
+                allow_blank=True, required=False)
+
+
 class LisanSerializerMixin(serializers.ModelSerializer):
     """
     A serializer mixin that handles dynamic language translations
@@ -26,6 +44,16 @@ class LisanSerializerMixin(serializers.ModelSerializer):
         self.default_language = getattr(
             settings, 'LISAN_DEFAULT_LANGUAGE', 'en'
         )
+
+        # Initialize `translations` with the nested
+        # serializer for each language entry
+        self.fields['translations'] = serializers.ListSerializer(
+            child=TranslationSerializer(
+                lisan_fields=getattr(self.Meta.model, 'lisan_fields', [])),
+            required=False,
+            write_only=True
+        )
+
         self._handle_dynamic_fields()
 
     def _handle_dynamic_fields(self):
@@ -36,10 +64,12 @@ class LisanSerializerMixin(serializers.ModelSerializer):
         """
         if self.request and self.request.method in ['POST', 'PUT', 'PATCH']:
             if 'translations' not in self.fields:
-                self.fields['translations'] = serializers.ListField(
-                    child=serializers.DictField(),
-                    write_only=True,
-                    required=False
+                self.fields['translations'] = serializers.ListSerializer(
+                    child=TranslationSerializer(
+                        lisan_fields=getattr(
+                            self.Meta.model, 'lisan_fields', [])),
+                    required=False,
+                    write_only=True
                 )
         else:
             self.fields.pop('translations', None)
@@ -47,8 +77,7 @@ class LisanSerializerMixin(serializers.ModelSerializer):
     def to_representation(self, instance):
         """
         Override the default representation of the instance to include
-        language-specific fields based on the requested language. This
-        ensures that the correct language data is included in the response.
+        language-specific fields based on the requested language.
         """
         representation = super().to_representation(instance)
         language_code = getattr(
@@ -67,6 +96,16 @@ class LisanSerializerMixin(serializers.ModelSerializer):
                         field, language_code
                     )
 
+        # Add structured `translations` with data for each language
+        translations_representation = []
+        for lang_code in self.allowed_languages:
+            translation_data = {'language_code': lang_code}
+            for field in instance.lisan_fields:
+                translation_data[field] = instance.get_lisan_field(
+                    field, lang_code)
+            translations_representation.append(translation_data)
+
+        representation['translations'] = translations_representation
         return representation
 
     def _process_translations(
@@ -75,13 +114,6 @@ class LisanSerializerMixin(serializers.ModelSerializer):
         Process and save the translations for each language provided
         in the translations list. This method updates the instance with
         language-specific data.
-
-        Args:
-            instance: The model instance being created or updated.
-            translations: A list of translation dictionaries containing
-                          language_code and field data.
-            default_language_code: The default language code to use if
-                                   none is provided in a translation.
         """
         for translation in translations:
             lang_code = translation.pop('language_code', None)
@@ -99,13 +131,6 @@ class LisanSerializerMixin(serializers.ModelSerializer):
         Create a new instance of the model, handling any translations
         provided in the validated data. The translations are processed
         and saved separately after the main instance is created.
-
-        Args:
-            validated_data: The data that has been validated and is ready
-                            for creating a new model instance.
-
-        Returns:
-            The newly created model instance.
         """
         translations = validated_data.pop('translations', [])
         self._validate_translations(translations)
@@ -135,14 +160,6 @@ class LisanSerializerMixin(serializers.ModelSerializer):
         Update an existing instance of the model, handling any translations
         provided in the validated data. The translations are processed and
         saved separately after the main instance is updated.
-
-        Args:
-            instance: The existing model instance being updated.
-            validated_data: The data that has been validated and is ready
-                            for updating the model instance.
-
-        Returns:
-            The updated model instance.
         """
         translations = validated_data.pop('translations', [])
         self._validate_translations(translations, partial=True)
@@ -179,15 +196,6 @@ class LisanSerializerMixin(serializers.ModelSerializer):
         fields. This method ensures that each translation includes a
         language_code and that all necessary fields are present for each
         translation.
-
-        Args:
-            translations: A list of dictionaries containing translation data.
-            partial: A boolean indicating whether the validation is for a
-                     partial update (PATCH) or a full update/creation.
-
-        Raises:
-            ValidationError: If any required language or field is missing, or
-                             if an unsupported language code is provided.
         """
         if not translations:
             # Skip translation validation for partial updates

@@ -75,13 +75,29 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                                 f"Field '{field_name}' does not exist in the "
                                 "translation model."
                             )
+                    
+                    primary_key_field = getattr(self.Lisan._meta, 'pk', None)
+                    if primary_key_field and primary_key_field.name != 'id':
+                        primary_key_value = lisan_fields.pop(
+                            primary_key_field.name, None)
+                    else:
+                        primary_key_value = None
 
                     # Explicitly set the foreign key to self (the instance)
+                    # TODO: this is not capturing the UUID for the id
                     lisan = self.Lisan(
                         **lisan_fields,
                         language_code=language_code,
                         **{self._meta.model_name: self}
                     )
+
+                    if primary_key_value is not None:
+                        setattr(
+                            lisan,
+                            primary_key_field.name,
+                            primary_key_value
+                        )
+
                     lisan.save()
                     self.lisans.add(lisan)
                 else:

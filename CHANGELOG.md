@@ -1,3 +1,70 @@
+## [v0.1.5] - 2024-11-11
+
+This release introduces two major enhancements to `Lisan`'s translation model functionality, improving flexibility in primary key configurations and structuring translation data for API responses.
+
+### Added
+- **Flexible Primary Key Configuration for Translation Tables**:
+  - Added support to configure primary key type for translation (Lisan) tables, allowing the use of either `BigInt` or `UUID` as primary keys.
+  - Configurable globally via `settings.py` (`LISAN_PRIMARY_KEY_TYPE`) or per model by setting the `lisan_primary_key_type` attribute.
+  - Ensures flexibility for projects that require UUIDs or BigInts based on specific requirements or database configurations.
+
+- **Nested Translation Serializer for Structured API Responses**:
+  - Introduced a `TranslationSerializer` to handle multilingual data in API responses, providing a structured, nested format.
+  - Integrated `TranslationSerializer` within `LisanSerializerMixin`, enabling organized representation of translations in API responses.
+  - Allows each translation entry to include fields such as `language_code` and all specified translatable fields, making it easier to work with multilingual data in client applications.
+
+### Improved
+- **Dynamic Primary Key Assignment for Lisan Models**:
+  - Enhanced the `LisanModelMeta` metaclass to detect and apply the specified primary key type dynamically, either at the model level or globally.
+  - Ensured that the primary key type for Many-to-Many join tables remains `AutoField` even when the `Lisan` model uses `UUIDField` as its primary key, simplifying compatibility with Django’s default join tables.
+
+### Configuration Changes
+- **New Settings**:
+  - `LISAN_PRIMARY_KEY_TYPE`: Allows configuration of the primary key type for translation tables globally. Options include `BigAutoField` (default) and `UUIDField`.
+
+### Migration Notes
+- A new migration is required if you change the primary key type for existing translation tables. After updating, use the following commands:
+
+  ```bash
+  python manage.py makemigrations
+  python manage.py migrate
+  ```
+
+### Example Usage
+
+- **Primary Key Configuration**: Define primary key type globally in `settings.py` or per model:
+  ```python
+  # In settings.py
+  LISAN_PRIMARY_KEY_TYPE = models.UUIDField
+
+  # Per model configuration
+  class MyModel(LisanModelMixin, models.Model):
+      lisan_primary_key_type = models.UUIDField
+  ```
+
+- **Translation Serializer**: Access structured translation data in API responses with `TranslationSerializer`:
+  ```json
+  {
+      "id": 1,
+      "title": "Sample Title",
+      "description": "Sample Description",
+      "translations": [
+          {
+              "language_code": "am",
+              "title": "ምሳሌ ርእስ",
+              "description": "ምሳሌ መግለጫ"
+          },
+          {
+              "language_code": "en",
+              "title": "Sample Title",
+              "description": "Sample Description"
+          }
+      ]
+  }
+  ```
+
+---
+
 ## [v0.1.4] - 2024-10-07
 
 This release introduces improvements in the translation validation process for partial updates, ensuring that translations are properly validated unless explicitly omitted in partial updates.

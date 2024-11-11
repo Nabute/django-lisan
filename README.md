@@ -7,6 +7,7 @@
 ## Features
 
 - **Automatic Translation Models:** Automatically generate translation models for your fields.
+- **Flexible Primary Key Configuration:** Use either BigInt or UUID as primary keys for translation tables, configurable globally or per model.
 - **Admin Integration:** Seamlessly manage translations through the Django admin interface.
 - **Fallback Mechanism:** Fallback to the default language if a translation is not available.
 - **Dynamic Getter Methods:** Automatically generate methods to access translated fields.
@@ -44,7 +45,7 @@ pip install lisan
 
 ### 1. Configuring Lisan
 
-To start using `Lisan` in your project, you need to configure the language settings and middleware in your Django settings file.
+To start using `Lisan` in your project, configure the language settings, middleware, and primary key type (if needed) in your Django settings file.
 
 #### Step 1.0: Add Lisan Language Settings
 
@@ -55,7 +56,20 @@ LISAN_FALLBACK_LANGUAGES = ['fr', 'es', 'en']  # Customize fallback languages
 LISAN_DEFAULT_TRANSLATION_SERVICE = 'yourapp.google_translate_service.GoogleTranslateService'  # Pluggable translation service
 ```
 
-#### Step 1.1: Add Lisan Middleware
+#### Step 1.1: Configure Primary Key Type (Optional)
+
+You can configure `Lisan` to use either `BigInt` or `UUID` as the primary key for translation tables. 
+
+To set this globally, use the `LISAN_PRIMARY_KEY_TYPE` setting in `settings.py`:
+
+```python
+from django.db import models
+LISAN_PRIMARY_KEY_TYPE = models.UUIDField  # Options: models.BigAutoField (default) or models.UUIDField
+```
+
+Alternatively, define `lisan_primary_key_type` on specific models to override the global setting.
+
+#### Step 1.2: Add Lisan Middleware
 
 Make sure to include `Lisan`'s middleware in your `MIDDLEWARE` settings for automatic language detection and management:
 
@@ -85,6 +99,9 @@ class Snippet(LisanModelMixin, models.Model):
     title = models.CharField(max_length=100, blank=True, default='')
     description = models.TextField(blank=True, default='')
     created = models.DateTimeField(auto_now_add=True)
+
+    # Optionally specify UUIDField as primary key for translation tables
+    lisan_primary_key_type = models.UUIDField
 
     class Meta:
         ordering = ['created']
@@ -162,9 +179,9 @@ To create a snippet with translations, send a `POST` request to the appropriate 
 }
 ```
 
-### 2. Retrieving a Snippet with a Specific Translation
+### 2. Retrieving a Snippet with Translations Using Nested Translation Serializer
 
-To retrieve a snippet in a specific language, send a `GET` request with the appropriate `Accept-Language` header to specify the desired language (e.g., `am` for Amharic).
+To retrieve translations for a snippet, use the `TranslationSerializer` to structure the translations in a nested format.
 
 **Request Example**:
 
@@ -173,15 +190,27 @@ GET /api/snippets/1/
 Accept-Language: am
 ```
 
-The response will return the snippet information in the requested language if available, or it will fallback to the default language:
+The response will include all translations for the snippet in a structured format:
 
 **Response Example**:
 
 ```json
 {
     "id": 1,
-    "title": "ኮድ ቅርጸት ምሳሌ",
-    "description": "እንቁ ምሳሌ"
+    "title": "Code Snippet Example",
+    "description": "Example Description",
+    "translations": [
+        {
+            "language_code": "am",
+            "title": "ኮድ ቅርጸት ምሳሌ",
+            "description": "እንቁ ምሳሌ"
+        },
+        {
+            "language_code": "en",
+            "title": "Code Snippet Example",
+            "description": "Example Description"
+        }
+    ]
 }
 ```
 
@@ -219,7 +248,9 @@ from googletrans import Translator
 from lisan.translation_services import BaseTranslationService
 
 class GoogleTranslateService(BaseTranslationService):
-    def __init__(self):
+    def __init
+
+__(self):
         self.translator = Translator()
 
     def translate(self, text, target_language):

@@ -7,11 +7,11 @@ def read_file(filename):
     with open(filename, encoding='utf-8') as f:
         return f.read()
 
-long_description = read_file('README.md') if os.path.exists('README.md') else ''
+long_description = read_file('README.md') if os.path.exists('README.md') else '' # noqa
 
 setup(
     name='lisan',
-    version='0.1.4',
+    version='0.1.5',
     packages=find_packages(),
     include_package_data=True,
     license='MIT',
