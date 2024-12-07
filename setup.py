@@ -11,7 +11,7 @@ long_description = read_file('README.md') if os.path.exists('README.md') else ''
 
 setup(
     name='lisan',
-    version='0.1.5',
+    version='0.1.6',
     packages=find_packages(),
     include_package_data=True,
     license='MIT',

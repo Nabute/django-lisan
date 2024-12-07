@@ -22,7 +22,7 @@ def get_translation_service():
         AttributeError: If the class is not found within the module.
     """
     # Split the module path and class name from the settings
-    module_path, class_name = settings.LISAN_DEFAULT_TRANSLATION_SERVICE.rsplit('.', 1)
+    module_path, class_name = settings.LISAN_DEFAULT_TRANSLATION_SERVICE.rsplit('.', 1)  # noqa: E501
 
     # Import the module dynamically
     module = import_module(module_path)

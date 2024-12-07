@@ -138,8 +138,9 @@ class LisanSerializerMixin(serializers.ModelSerializer):
             self.request, 'language_code', self.default_language
         )
 
-        # Ensure the language code is within allowed languages
+        # Ensure the language code is within allowed languages,
         if language_code not in self.allowed_languages:
+            # eventhought it's hard to reach here
             language_code = self.default_language
 
         # Create the main instance
@@ -169,10 +170,23 @@ class LisanSerializerMixin(serializers.ModelSerializer):
 
         # Ensure the language code is within allowed languages
         if language_code not in self.allowed_languages:
+            # eventhought it's hard to reach here
             language_code = self.default_language
+
+        # Track translatable fields updated in the main model
+        translatable_updates = {
+            field: validated_data[field]
+            for field in self.Meta.model.lisan_fields
+            if field in validated_data
+        }
 
         # Update the main instance with non-translation fields
         instance = super().update(instance, validated_data)
+
+        # Synchronize updated translatable fields with the default
+        # language translation
+        if translatable_updates:
+            instance.set_lisan(language_code, **translatable_updates)
 
         # Process and save the translations
         for translation in translations:
