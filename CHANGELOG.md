@@ -1,3 +1,110 @@
+## [v0.1.6] - 2024-12-07
+
+This release delivers significant improvements across the `Lisan` package, focusing on enhanced functionality, better error handling, and comprehensive test coverage. It introduces refined translation handling in `LisanModelMixin`, dynamic serializer validation, and robust admin inline management for multilingual data.
+
+---
+
+### **Added**
+
+- **Admin Inline Support for Lisan Models**:
+  - Dynamically identifies related `Lisan` models and adds inlines in the admin interface.
+  - Enables seamless management of translations directly from the Django admin.
+
+- **Dynamic Field Management in Serializers**:
+  - `TranslationSerializer` and `LisanSerializerMixin` now dynamically handle `translations` fields based on request methods (`POST`, `PATCH`, etc.).
+  - Early validation of translation fields halts processing on invalid data.
+
+- **Synchronization of Translatable Fields in Updates**:
+  - Translatable fields updated directly in the main model are now synchronized with their corresponding default language translations during `PATCH` and `PUT` operations, ensuring consistency in API responses.
+
+- **Comprehensive Error Handling**:
+  - Added explicit exceptions for:
+    - Invalid field names (`FieldDoesNotExist`).
+    - Unsupported language codes (`ValueError`).
+    - Integrity issues (`IntegrityError`).
+    - General exceptions in translation methods like `set_lisan`.
+
+- **Improved Test Suite**:
+  - Added 100% test coverage for `LisanModelMixin`, middleware, serializers, and admin functionalities.
+  - Tests now validate behaviors such as:
+    - Creation and update of translations.
+    - Handling of duplicate and bulk translations.
+    - Dynamic field inclusion in serializers.
+    - Middleware fallback and validation.
+
+---
+
+### **Improved**
+
+- **`set_lisan` Method**:
+  - Replaces existing translations for the same language, avoiding duplicates.
+  - Handles custom primary key configurations dynamically.
+  - Improved field validation to ensure all `lisan_fields` exist in the `Lisan` model.
+
+- **Bulk Translation Handling**:
+  - `set_bulk_lisans` now supports a mix of updates and new translations for multiple languages in a single operation.
+
+- **Middleware Enhancements**:
+  - Refined `LanguageMiddleware` for better validation and fallback logic:
+    - Prioritizes query parameters (`?lang=xx`), user profile preferences, cookies, and headers.
+    - Ensures unsupported languages default to `LISAN_DEFAULT_LANGUAGE`.
+
+- **Documentation**:
+  - Enhanced docstrings for all key methods and classes.
+  - Improved error messages for better debugging.
+
+---
+
+### **Fixed**
+
+- **Admin Relationship Detection**:
+  - Fixed issues with detecting reverse relationships between `Lisan` models and parent models in admin inlines.
+
+- **Translation Field Validation**:
+  - Prevented silent failures when invalid fields are passed to `set_lisan`.
+
+- **Middleware Parsing**:
+  - Addressed edge cases in `Accept-Language` header parsing, ensuring valid language selection.
+
+---
+
+### **Configuration Changes**
+
+- No new settings were added in this release. Existing settings such as `LISAN_DEFAULT_LANGUAGE` and `LISAN_ALLOWED_LANGUAGES` continue to be integral for managing translations.
+
+---
+
+### **Example Usage**
+
+- **Set a Translation**:
+  ```python
+  instance.set_lisan('am', title="አዲስ ሰላም", description="አስገራሚ መግለጫ")
+  ```
+
+- **Retrieve a Field with Fallback**:
+  ```python
+  title = instance.get_lisan_field('title', 'fr', fallback_languages=['en', 'am'])
+  ```
+
+- **Bulk Translation Update**:
+  ```python
+  translations = {
+      'en': {'title': "New Title", 'description': "New Description"},
+      'fr': {'title': "Nouveau Titre", 'description': "Nouvelle Description"}
+  }
+  instance.set_bulk_lisans(translations)
+  ```
+
+---
+
+### **Future Plans**
+
+- Add support for more advanced translation workflows, such as language auto-detection.
+- Introduce caching mechanisms for translation retrieval.
+- Expand support for admin inline customization and validation.
+
+---
+
 ## [v0.1.5] - 2024-11-11
 
 This release introduces two major enhancements to `Lisan`'s translation model functionality, improving flexibility in primary key configurations and structuring translation data for API responses.

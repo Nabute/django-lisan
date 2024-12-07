@@ -66,7 +66,7 @@ class TestLisanSerializerMixin(TestCase):
         class TestModelSerializer(LisanSerializerMixin):
             class Meta:
                 model = TestModel
-                fields = ['id', 'title', 'description']
+                fields = ['id', 'title', 'description', 'author']
 
         self.serializer_class = TestModelSerializer
 
@@ -406,3 +406,125 @@ class TestLisanSerializerMixin(TestCase):
         self.assertIn(
             "Missing translations for languages",
             str(context.exception.detail[0]))
+
+    def test_update_sync_translatable_fields(self):
+        """
+        Test that updating translatable fields in the main model synchronizes
+        changes to the default language translation.
+        """
+        self.request.method = 'PATCH'
+        data = {
+            'title': "Updated Title",
+            'description': "Updated Description"
+        }
+        serializer = self.serializer_class(
+            self.model_instance, data=data,
+            partial=True, context={'request': self.request})
+        self.assertTrue(serializer.is_valid())
+
+        instance = serializer.save()
+
+        # Check that the main model fields are updated
+        self.assertEqual(instance.title, "Updated Title")
+        self.assertEqual(instance.description, "Updated Description")
+
+        # Check that the default language translation is synchronized
+        lisan = instance.get_lisan('en')
+        self.assertEqual(lisan.title, "Updated Title")
+        self.assertEqual(lisan.description, "Updated Description")
+
+    def test_update_sync_translatable_fields_with_language(self):
+        """
+        Test that updating translatable fields synchronizes changes to the
+        specified language translation when the language code is set.
+        """
+        self.request.method = 'PATCH'
+        self.request.language_code = 'am'
+        data = {
+            'title': "አዲስ ርእስ",
+            'description': "አዲስ መግለጫ"
+        }
+        serializer = self.serializer_class(
+            self.model_instance, data=data,
+            partial=True, context={'request': self.request})
+        self.assertTrue(serializer.is_valid())
+
+        instance = serializer.save()
+
+        # Check that the main model fields are updated
+        self.assertEqual(instance.title, "አዲስ ርእስ")
+        self.assertEqual(instance.description, "አዲስ መግለጫ")
+
+        # Check that the 'am' translation is updated
+        lisan = instance.get_lisan('am')
+        self.assertEqual(lisan.title, "አዲስ ርእስ")
+        self.assertEqual(lisan.description, "አዲስ መግለጫ")
+
+    def test_partial_update_without_translatable_fields(self):
+        """
+        Test that updating non-translatable fields does not affect
+        translations.
+        """
+        self.request.method = 'PATCH'
+        data = {'author': "New Author"}
+        serializer = self.serializer_class(
+            self.model_instance, data=data,
+            partial=True, context={'request': self.request})
+        self.assertTrue(serializer.is_valid())
+
+        instance = serializer.save()
+
+        # Check that the main model field is updated
+        self.assertEqual(instance.author, "New Author")
+
+        # Check that translations remain unchanged
+        lisan = instance.get_lisan('am')
+        self.assertEqual(lisan.title, "ሰላም")
+        self.assertEqual(lisan.description, "ምሳሌ")
+
+    def test_update_translatable_and_non_translatable_fields(self):
+        """
+        Test that updating both translatable and non-translatable fields
+        synchronizes translatable fields while updating the main model.
+        """
+        self.request.method = 'PATCH'
+        data = {
+            'title': "Updated Title",
+            'author': "New Author"
+        }
+        serializer = self.serializer_class(
+            self.model_instance, data=data,
+            partial=True, context={'request': self.request})
+        self.assertTrue(serializer.is_valid())
+
+        instance = serializer.save()
+
+        # Check that both main model fields are updated
+        self.assertEqual(instance.title, "Updated Title")
+        self.assertEqual(instance.author, "New Author")
+
+        # Check that the default language translation is synchronized
+        lisan = instance.get_lisan('en')
+        self.assertEqual(lisan.title, "Updated Title")
+        self.assertEqual(lisan.description, "")
+
+    def test_update_with_unsupported_language_to_sync(self):
+        """
+        Test that updating with an unsupported language defaults to the
+        default language for synchronization.
+        """
+        self.request.method = 'PATCH'
+        self.request.language_code = 'unsupported'
+        data = {
+            'title': "Unsupported Language Title"
+        }
+        serializer = self.serializer_class(
+            self.model_instance, data=data,
+            partial=True, context={'request': self.request})
+        self.assertTrue(serializer.is_valid())
+
+        instance = serializer.save()
+
+        # Check that the default language is used for synchronization
+        lisan = instance.get_lisan('en')
+        self.assertEqual(lisan.title, "Unsupported Language Title")

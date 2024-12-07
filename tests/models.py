@@ -13,6 +13,8 @@ class TestModel(LisanModelMixin, models.Model):
     description = models.TextField(blank=True, default='')
     some = models.ForeignKey(
         SomeModel, null=True, blank=True, on_delete=models.CASCADE)
+    author = models.CharField(
+        max_length=100, blank=True, null=True, default='')
 
 
 class TheOtherModel(models.Model):

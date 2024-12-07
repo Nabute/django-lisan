@@ -14,6 +14,8 @@
 - **Pluggable Translation Services:** Support for external services like Google Translate to automatically translate content.
 - **Customizable Admin Display:** Configure how translations are displayed in the Django admin interface.
 - **Flexible Field Types:** Add translation support for various field types like `CharField`, `TextField`, and `JSONField`.
+- **Synchronization of Translatable Fields:** Ensures consistency by automatically syncing main model updates with default language translations.
+
 
 ## Table of Contents
 
@@ -23,6 +25,7 @@
   - [Adding Translation Support to Models](#1-adding-translation-support-to-models)
   - [Managing Translations in Django Admin](#2-managing-translations-in-django-admin)
   - [Accessing Translations in Code](#3-accessing-translations-in-code)
+  - [Synchronization of Updates](#4-synchronization-of-updates)
 - [API Usage](#api-usage)
   - [Creating a Snippet with Translations](#1-creating-a-snippet-with-translations)
   - [Retrieving a Snippet with a Specific Translation](#2-retrieving-a-snippet-with-a-specific-translation)
@@ -154,6 +157,54 @@ print(amharic_title)  # Output: ኮድ ቅርጸት ምሳሌ (if available) or 
 english_title = snippet.get_lisan_field('title', 'en')
 print(english_title)  # Output: Code Snippet Example
 ```
+
+---
+
+### 4. Synchronization of Updates
+
+When updating translatable fields directly in the main model, Lisan ensures synchronization with the default language translation automatically.
+
+#### Example
+
+**Request**:
+
+```http
+PATCH /api/snippets/1/
+Accept-Language: en
+Content-Type: application/json
+
+{
+    "title": "Updated Snippet Title"
+}
+```
+
+**Behavior**:
+
+- Updates the `title` field in the main model.
+- Synchronizes the updated value with the `en` translation.
+
+**Response**:
+
+```json
+{
+    "id": 1,
+    "title": "Updated Snippet Title",
+    "translations": [
+        {
+            "language_code": "en",
+            "title": "Updated Snippet Title",
+            "description": "Existing description"
+        },
+        {
+            "language_code": "am",
+            "title": "ኮድ ቅርጸት ምሳሌ",
+            "description": "እንቁ ምሳሌ"
+        }
+    ]
+}
+```
+
+---
 
 ## API Usage
 
