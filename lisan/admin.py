@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.core.exceptions import ImproperlyConfigured
 
 
 class LisanAdminMixin(admin.ModelAdmin):
@@ -69,8 +70,20 @@ class LisanAdminMixin(admin.ModelAdmin):
         Returns:
             LisanInline: The inline class for managing translations.
         """
-        model = self.model
-        lisan_model = model._meta.get_field('lisans').related_model
+        lisan_field = None
+        for field in self.model._meta.get_fields():
+            if field.is_relation and field.one_to_many and field.related_model:
+                # Verify it's a Lisan model
+                if hasattr(field.related_model, 'language_code'):
+                    lisan_field = field
+                    break
+
+        if not lisan_field:
+            raise ImproperlyConfigured(
+                f"{self.model.__name__} does not have a related Lisan model."
+            )
+
+        lisan_model = lisan_field.related_model
 
         class LisanInline(admin.TabularInline):
             model = lisan_model

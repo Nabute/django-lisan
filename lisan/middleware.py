@@ -27,11 +27,14 @@ class LanguageMiddleware(MiddlewareMixin):
         """
         # Fetch the default language from settings, fallback to 'en'
         default_language = getattr(settings, 'LISAN_DEFAULT_LANGUAGE', 'en')
-        supported_language = getattr(settings, 'LISAN_ALLOWED_LANGUAGES', [default_language])
-        
+        supported_language = getattr(
+            settings, 'LISAN_ALLOWED_LANGUAGES', [default_language])
+
         # Safe retrieval of user profile language preference
         language_preference = None
-        if hasattr(request, 'user') and hasattr(request.user, 'profile') and hasattr(request.user.profile, 'language_preference'):
+        if hasattr(request, 'user') and hasattr(
+                request.user, 'profile') and hasattr(
+                    request.user.profile, 'language_preference'):
             language_preference = request.user.profile.language_preference
 
         # Extract the language code in order of precedence
@@ -39,7 +42,8 @@ class LanguageMiddleware(MiddlewareMixin):
             request.GET.get('lang') or
             language_preference or
             request.COOKIES.get('language') or
-            self.parse_accept_language(request.headers.get('Accept-Language')) or
+            self.parse_accept_language(
+                request.headers.get('Accept-Language')) or
             default_language
         )
 
@@ -59,7 +63,8 @@ class LanguageMiddleware(MiddlewareMixin):
             accept_language_header: The value of the 'Accept-Language' header.
 
         Returns:
-            A string representing the best matched language code, or None if not found.
+            A string representing the best matched language code, or None
+            if not found.
         """
         if not accept_language_header:
             return None
@@ -69,5 +74,5 @@ class LanguageMiddleware(MiddlewareMixin):
         if languages:
             primary_language = languages[0].split(';')[0].strip()
             return primary_language if primary_language else None
-        
+
         return None

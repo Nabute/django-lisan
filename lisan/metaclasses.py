@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 
@@ -20,11 +21,15 @@ def create_lisan_model(
     Returns:
         Model: The dynamically created Lisan model class.
     """
-
     # Define metadata for the dynamically created Lisan model
     class Meta:
         app_label = model_cls._meta.app_label
-        unique_together = ('language_code', model_cls._meta.pk.name)
+        constraints = [
+            models.UniqueConstraint(
+                fields=['language_code', model_cls._meta.model_name],
+                name=f'unique_language_{model_cls._meta.verbose_name}'
+            )
+        ]
         db_table = f"{model_cls._meta.db_table}_lisan"
         verbose_name = f"{model_cls._meta.verbose_name} lisan"
         verbose_name_plural = f"{model_cls._meta.verbose_name_plural} lisans"
@@ -39,7 +44,11 @@ def create_lisan_model(
         ),
     }
 
-    if primary_key_type == models.UUIDField:
+    if not issubclass(primary_key_type, models.Field):
+        raise TypeError(
+            "Invalid primary_key_type provided. Must be a subclass of models.Field.") # noqa
+
+    if primary_key_type is models.UUIDField:
         import uuid
         # Configure UUIDField with auto-generation
         attrs['id'] = models.UUIDField(
@@ -56,6 +65,16 @@ def create_lisan_model(
     for field_name, field in fields.items():
         attrs[field_name] = field
 
+    def clean(self):
+        if self.__class__.objects.filter(
+            language_code=self.language_code,
+            **{f"{model_cls._meta.model_name}_id": getattr(
+                self, f"{model_cls._meta.model_name}_id")}
+        ).exists():
+            raise ValidationError("Duplicate translation for this language.")
+
+    attrs['clean'] = clean
+
     # Create a ForeignKey field linking the Lisan model to the original model
     attrs[model_cls._meta.model_name] = models.ForeignKey(
         model_cls,
@@ -69,6 +88,8 @@ def create_lisan_model(
         (models.Model,),
         attrs
     )
+
+    print(f"Generated Lisan model for {model_cls.__name__}")  # noqa
 
     return lisan_model
 
@@ -108,6 +129,10 @@ class LisanModelMeta(models.base.ModelBase):
                     f"{name} must define 'lisan_fields' when using LisanModelMixin."  # noqa
                 )
 
+            if not all(field in attrs for field in lisan_fields):
+                raise ValueError(
+                    f"Invalid 'lisan_fields' in {name}. Ensure all fields are defined.")  # noqa
+
             # Filter translatable fields by checking if they are
             # defined in lisan_fields
             translatable_fields = {
@@ -133,16 +158,6 @@ class LisanModelMeta(models.base.ModelBase):
             lisan_model = create_lisan_model(
                 new_class, translatable_fields, primary_key_type)
             setattr(new_class, 'Lisan', lisan_model)
-
-            # Add a ForeignKey linking the original model to the Lisan model
-            new_class.add_to_class(
-                'lisans',
-                models.ManyToManyField(
-                    lisan_model,
-                    related_name=f"{lisan_model.__name__.lower()}_set",
-                    blank=True
-                )
-            )
 
         else:
             # Create the new model class if not using the mixin

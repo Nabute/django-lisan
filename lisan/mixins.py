@@ -1,8 +1,8 @@
 from django.conf import settings
 from django.db import models, IntegrityError, transaction
 from django.core.exceptions import ObjectDoesNotExist, FieldDoesNotExist
-from .metaclasses import LisanModelMeta
-from .utils import get_translation_service
+from lisan.metaclasses import LisanModelMeta
+from lisan.utils import get_translation_service
 
 
 class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
@@ -33,7 +33,8 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
         """
         language_code = language_code or self._current_language
         try:
-            return self.lisans.filter(language_code=language_code).first()
+            return self.Lisan.objects.filter(
+                language_code=language_code).first()
         except ObjectDoesNotExist:
             return None
         except Exception as e:
@@ -58,12 +59,11 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                                translation model.
             IntegrityError: If a database integrity issue occurs.
         """
-        if not language_code:
-            raise ValueError("Language code must be provided")
+        self._validate_language_code(language_code)
 
         try:
             with transaction.atomic():
-                lisan = self.lisans.filter(
+                lisan = self.Lisan.objects.filter(
                     language_code=language_code
                 ).first()
 
@@ -75,7 +75,7 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                                 f"Field '{field_name}' does not exist in the "
                                 "translation model."
                             )
-                    
+
                     primary_key_field = getattr(self.Lisan._meta, 'pk', None)
                     if primary_key_field and primary_key_field.name != 'id':
                         primary_key_value = lisan_fields.pop(
@@ -99,7 +99,6 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                         )
 
                     lisan.save()
-                    self.lisans.add(lisan)
                 else:
                     for field, value in lisan_fields.items():
                         if hasattr(lisan, field):
@@ -129,7 +128,7 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                                 code (str) and the corresponding value is a
                                 dictionary of fields (dict) to be set or
                                 updated for that language.
-                                
+
                                 Example:
                                 {
                                     'en': {
@@ -207,7 +206,7 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
             lisan = self.get_lisan(lang)
             if lisan and hasattr(lisan, field_name):
                 return getattr(lisan, field_name)
-        
+
         # If auto-translation is enabled, use the translation service
         if auto_translate:
             original_text = getattr(self, field_name)
@@ -229,8 +228,7 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
         Raises:
             ValueError: If no language code is provided.
         """
-        if not language_code:
-            raise ValueError("Language code must be provided")
+        self._validate_language_code(language_code)
         self._current_language = language_code
 
     def is_field_translatable(self, field_name):
@@ -260,3 +258,23 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
             False
         """
         return field_name in self.lisan_fields
+
+    def _validate_language_code(self, language_code):
+        """
+        Validate that the provided language code is valid and supported.
+
+        :param language_code: The language code to validate.
+        :raises ValueError: If the language code is not
+                            provided or unsupported.
+        """
+        if not language_code:
+            raise ValueError("Language code must be provided")
+
+        # Retrieve default and allowed languages from settings with
+        # fallback values
+        default_language = getattr(settings, 'LISAN_DEFAULT_LANGUAGE', 'en')
+        supported_languages = getattr(
+            settings, 'LISAN_ALLOWED_LANGUAGES', [default_language])
+
+        if language_code not in supported_languages:
+            raise ValueError(f"Unsupported language code: {language_code}. Supported languages are: {supported_languages}") # noqa

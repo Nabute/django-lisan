@@ -1,6 +1,6 @@
 from django.apps import AppConfig, apps
 from django.db import models
-from .metaclasses import create_lisan_model
+from lisan.metaclasses import create_lisan_model
 
 
 class LisanConfig(AppConfig):
@@ -29,13 +29,13 @@ class LisanConfig(AppConfig):
                     field: model._meta.get_field(field)
                     for field in model.lisan_fields
                 }
-                
+
                 # Create the corresponding Lisan model dynamically
                 lisan_model = create_lisan_model(model, lisan_fields)
-                
+
                 # Set the Lisan model as an attribute of the original model
                 setattr(model, 'Lisan', lisan_model)
-                
+
                 # Add a ManyToManyField to associate the model with its Lisan
                 model.add_to_class(
                     'lisans',

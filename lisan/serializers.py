@@ -138,8 +138,9 @@ class LisanSerializerMixin(serializers.ModelSerializer):
             self.request, 'language_code', self.default_language
         )
 
-        # Ensure the language code is within allowed languages
+        # Ensure the language code is within allowed languages,
         if language_code not in self.allowed_languages:
+            # eventhought it's hard to reach here
             language_code = self.default_language
 
         # Create the main instance
@@ -169,6 +170,7 @@ class LisanSerializerMixin(serializers.ModelSerializer):
 
         # Ensure the language code is within allowed languages
         if language_code not in self.allowed_languages:
+            # eventhought it's hard to reach here
             language_code = self.default_language
 
         # Update the main instance with non-translation fields
