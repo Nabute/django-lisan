@@ -33,8 +33,11 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
         """
         language_code = language_code or self._current_language
         try:
-            return self.Lisan.objects.filter(
-                language_code=language_code).first()
+            filter_kwargs = {
+                    "language_code": language_code,
+                    f"{self._meta.model_name}": self
+                }
+            return self.Lisan.objects.filter(**filter_kwargs).first()
         except ObjectDoesNotExist:
             return None
         except Exception as e:
@@ -63,9 +66,11 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
 
         try:
             with transaction.atomic():
-                lisan = self.Lisan.objects.filter(
-                    language_code=language_code
-                ).first()
+                filter_kwargs = {
+                    "language_code": language_code,
+                    f"{self._meta.model_name}": self
+                }
+                lisan = self.Lisan.objects.filter(**filter_kwargs).first()
 
                 if not lisan:
                     # Check if all lisan_fields exist in the model
@@ -159,8 +164,9 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
             consistency.
         """
         with transaction.atomic():
-            for language_code, fields in translations.items():
-                self.set_lisan(language_code, **fields)
+            for translation in translations:
+                language_code = translation.pop("language_code")
+                self.set_lisan(language_code, **translation)
 
     def get_lisan_field(
             self, field_name,

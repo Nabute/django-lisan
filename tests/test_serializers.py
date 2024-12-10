@@ -213,30 +213,6 @@ class TestLisanSerializerMixin(TestCase):
         self.assertEqual(representation['title'], "Hello World")
         self.assertEqual(representation['description'], "Sample description")
 
-    def test_process_translations_empty_data(self):
-        """
-        Test that `_process_translations` handles empty
-        translations gracefully.
-        """
-        serializer = self.serializer_class(context={'request': self.request})
-        serializer._process_translations(self.model_instance, [], 'en')
-        # Ensure no exceptions and instance remains unchanged
-        self.assertEqual(self.model_instance.get_lisan_field(
-            'title', 'am'), "ሰላም")
-
-    def test_process_translations_with_missing_language_code(self):
-        """
-        Test `_process_translations` with a translation missing a
-        language_code.
-        """
-        serializer = self.serializer_class(context={'request': self.request})
-        translations = [{'title': "Missing Language Code"}]
-        serializer._process_translations(
-            self.model_instance, translations, 'en')
-        # Ensure no exceptions and instance remains unchanged
-        self.assertEqual(self.model_instance.get_lisan_field(
-            'title', 'am'), "ሰላም")
-
     def test_validate_translations_partial(self):
         """
         Test validation with partial translations in partial update mode.

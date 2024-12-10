@@ -89,8 +89,6 @@ def create_lisan_model(
         attrs
     )
 
-    print(f"Generated Lisan model for {model_cls.__name__}")  # noqa
-
     return lisan_model
 
 
