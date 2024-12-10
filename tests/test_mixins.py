@@ -75,16 +75,24 @@ class TestLisanModelMixin(TestCase):
         """
         Test setting translations in bulk for multiple languages.
         """
-        translations = {
-            'am': {'title': "አዲስ ሰላም"},
-            'or': {'title': "Nagaa Addunyaa", 'description': "Fakkeenya"}
-        }
+        translations = [
+            {
+                "language_code": "or",
+                "title": "Nagaa Addunyaa",
+                "description": "Fakkeenya"
+            },
+            {
+                "language_code": "am",
+                "title": "አስደሳች ጉዞ",
+                "description": "በማይታወቁ መሬቶች ላይ አስገራሚ ጉዞ."
+            }
+        ]
         self.instance.set_bulk_lisans(translations)
 
         am_translation = self.instance.get_lisan('am')
         or_translation = self.instance.get_lisan('or')
 
-        self.assertEqual(am_translation.title, "አዲስ ሰላም")
+        self.assertEqual(am_translation.title, "አስደሳች ጉዞ")
         self.assertEqual(or_translation.title, "Nagaa Addunyaa")
         self.assertEqual(or_translation.description, "Fakkeenya")
 
@@ -246,17 +254,23 @@ class TestLisanModelMixin(TestCase):
         Test that set_bulk_lisans updates existing translations and creates
         new translations as needed.
         """
-        translations = {
-            # Update existing translation
-            'am': {'title': "አዲስ ሰላም"},
-            # New translation
-            'or': {'title': "Nagaa Addunyaa", 'description': "Fakkeenya"},
-        }
+        translations = [
+            {
+                "language_code": "or",
+                "title": "Nagaa Addunyaa",
+                "description": "Fakkeenya"
+            },
+            {
+                "language_code": "am",
+                "title": "አስደሳች ጉዞ",
+                "description": "ምሳሌ መግለጫ"
+            }
+        ]
         self.instance.set_bulk_lisans(translations)
 
         # Verify the 'am' translation was updated
         am_translation = self.instance.get_lisan('am')
-        self.assertEqual(am_translation.title, "አዲስ ሰላም")
+        self.assertEqual(am_translation.title, "አስደሳች ጉዞ")
         # Unchanged field
         self.assertEqual(am_translation.description, "ምሳሌ መግለጫ")
 

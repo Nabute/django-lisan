@@ -108,24 +108,6 @@ class LisanSerializerMixin(serializers.ModelSerializer):
         representation['translations'] = translations_representation
         return representation
 
-    def _process_translations(
-            self, instance, translations, default_language_code):
-        """
-        Process and save the translations for each language provided
-        in the translations list. This method updates the instance with
-        language-specific data.
-        """
-        for translation in translations:
-            lang_code = translation.pop('language_code', None)
-            if lang_code:
-                lisan_data = {
-                    field: translation.get(field)
-                    for field in instance.lisan_fields
-                    if translation.get(field) is not None
-                }
-                if lisan_data:
-                    instance.set_lisan(lang_code, **lisan_data)
-
     def create(self, validated_data):
         """
         Create a new instance of the model, handling any translations
@@ -145,14 +127,7 @@ class LisanSerializerMixin(serializers.ModelSerializer):
 
         # Create the main instance
         instance = super().create(validated_data)
-        lisan_fields = {
-            field: validated_data.get(field)
-            for field in self.Meta.model.lisan_fields
-        }
-        instance.set_lisan(language_code, **lisan_fields)
-
-        # Process and save the translations
-        self._process_translations(instance, translations, language_code)
+        instance.set_bulk_lisans(translations)
 
         return instance
 
