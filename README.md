@@ -341,7 +341,7 @@ This testing structure ensures that your translations work as expected, using bo
 
 ## Contributing
 
-If you find any issues or have suggestions for improvements, feel free to open an issue or submit a pull request on GitHub. Contributions are always welcome.
+If you find any issues or have suggestions for improvements, feel free to open an issue or/and submit a pull request. Contributions are always welcome.
 
 ## License
 
