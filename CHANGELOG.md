@@ -1,3 +1,15 @@
+## [v0.1.8] – 2025-05-23
+
+### **Changed**
+	•	Refactored LisanModelMixin.get_lisan() to leverage prefetched related objects.
+	•	Falls back to database query only when the translation is not prefetched.
+
+### **Performance**
+	•	Significantly optimized API performance:
+	•	Query count dropped from 758 to 4
+	•	Response time improved from 7683ms to 269ms
+
+
 ## [v0.1.6] - 2024-12-07
 
 This release delivers significant improvements across the `Lisan` package, focusing on enhanced functionality, better error handling, and comprehensive test coverage. It introduces refined translation handling in `LisanModelMixin`, dynamic serializer validation, and robust admin inline management for multilingual data.
