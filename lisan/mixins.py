@@ -32,6 +32,15 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                            or None if not found.
         """
         language_code = language_code or self._current_language
+        related_name = f"{self._meta.model_name}_lisans"
+
+        if hasattr(self, "_prefetched_objects_cache") and \
+                related_name in self._prefetched_objects_cache:
+            prefetched = self._prefetched_objects_cache.get(related_name) or []
+            for lisan in prefetched:
+                if lisan.language_code == language_code:
+                    return lisan
+            return None
         try:
             filter_kwargs = {
                     "language_code": language_code,
