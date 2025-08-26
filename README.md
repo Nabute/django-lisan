@@ -57,6 +57,10 @@ LISAN_DEFAULT_LANGUAGE = 'en'  # Default language for translations
 LISAN_ALLOWED_LANGUAGES = ['en', 'am', 'or', 'tg']  # Languages supported by Lisan
 LISAN_FALLBACK_LANGUAGES = ['fr', 'es', 'en']  # Customize fallback languages
 LISAN_DEFAULT_TRANSLATION_SERVICE = 'yourapp.google_translate_service.GoogleTranslateService'  # Pluggable translation service
+
+# Control inclusion of translations in API responses
+LISAN_INCLUDE_TRANSLATIONS_BULK = False   # for list endpoints
+LISAN_INCLUDE_TRANSLATIONS_DETAIL = False  # for detail endpoints
 ```
 
 #### Step 1.1: Configure Primary Key Type (Optional)
@@ -232,12 +236,20 @@ To create a snippet with translations, send a `POST` request to the appropriate 
 
 ### 2. Retrieving a Snippet with Translations Using Nested Translation Serializer
 
-To retrieve translations for a snippet, use the `TranslationSerializer` to structure the translations in a nested format.
+By default, serialized responses omit the `translations` list to avoid
+additional database queries for every available language. To include all
+translations for a snippet, you can:
+
+- Pass the `include_translations` query parameter.
+- Set `include_translations` in the serializer context.
+- Enable `LISAN_INCLUDE_TRANSLATIONS_DETAIL` or
+  `LISAN_INCLUDE_TRANSLATIONS_BULK` in your Django settings to include
+  translations automatically for detail or list endpoints, respectively.
 
 **Request Example**:
 
 ```http
-GET /api/snippets/1/
+GET /api/snippets/1?include_translations=true
 Accept-Language: am
 ```
 
@@ -250,18 +262,19 @@ The response will include all translations for the snippet in a structured forma
     "id": 1,
     "title": "Code Snippet Example",
     "description": "Example Description",
-    "translations": [
-        {
-            "language_code": "am",
-            "title": "ኮድ ቅርጸት ምሳሌ",
-            "description": "እንቁ ምሳሌ"
-        },
-        {
-            "language_code": "en",
-            "title": "Code Snippet Example",
-            "description": "Example Description"
-        }
-    ]
+    // include_translations = true
+    // "translations": [
+    //     {
+    //         "language_code": "am",
+    //         "title": "ኮድ ቅርጸት ምሳሌ",
+    //         "description": "እንቁ ምሳሌ"
+    //     },
+    //     {
+    //         "language_code": "en",
+    //         "title": "Code Snippet Example",
+    //         "description": "Example Description"
+    //     }
+    // ]
 }
 ```
 

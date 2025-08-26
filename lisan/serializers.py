@@ -96,16 +96,48 @@ class LisanSerializerMixin(serializers.ModelSerializer):
                         field, language_code
                     )
 
-        # Add structured `translations` with data for each language
-        translations_representation = []
-        for lang_code in self.allowed_languages:
-            translation_data = {'language_code': lang_code}
-            for field in instance.lisan_fields:
-                translation_data[field] = instance.get_lisan_field(
-                    field, lang_code)
-            translations_representation.append(translation_data)
+        # Check if translations should be included in the representation
+        include_translations = self.context.get('include_translations')
 
-        representation['translations'] = translations_representation
+        # Query parameter can override context
+        if include_translations is None and self.request:
+            params = getattr(self.request, 'query_params', None)
+            if params is None and hasattr(self.request, 'GET'):
+                params = self.request.GET
+            if params:
+                flag = params.get('include_translations')
+                if flag is not None:
+                    if isinstance(flag, str):
+                        include_translations = flag.lower() not in [
+                            '0', 'false', 'no', 'off'
+                        ]
+                    else:
+                        include_translations = bool(flag)
+
+        # Fall back to settings-based defaults
+        if include_translations is None:
+            is_detail = self.parent is None
+            if is_detail:
+                include_translations = getattr(
+                    settings, 'LISAN_INCLUDE_TRANSLATIONS_DETAIL', False
+                )
+            else:
+                include_translations = getattr(
+                    settings, 'LISAN_INCLUDE_TRANSLATIONS_BULK', False
+                )
+
+        # Add structured `translations` with data for each language
+        # only when requested
+        if include_translations:
+            translations_representation = []
+            for lang_code in self.allowed_languages:
+                translation_data = {'language_code': lang_code}
+                for field in instance.lisan_fields:
+                    translation_data[field] = instance.get_lisan_field(
+                        field, lang_code)
+                translations_representation.append(translation_data)
+
+            representation['translations'] = translations_representation
         return representation
 
     def create(self, validated_data):
@@ -220,3 +252,22 @@ class LisanSerializerMixin(serializers.ModelSerializer):
                         f"Missing fields for {lang_code}: "
                         f"{', '.join(missing_fields)}"
                     )
+
+
+{
+    "id": 1,
+    "title": "Code Snippet Example",
+    "description": "Example Description",
+    "translations": [
+        {
+            "language_code": "am",
+            "title": "ኮድ ቅርጸት ምሳሌ",
+            "description": "እንቁ ምሳሌ"
+        },
+        {
+            "language_code": "en",
+            "title": "Code Snippet Example",
+            "description": "Example Description"
+        }
+    ]
+}
