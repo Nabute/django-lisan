@@ -1,3 +1,16 @@
+## [v0.2.0] – 2025-08-26
+
+### Changed
+- Dropped support for Python 3.8 and 3.9; require Python >= 3.10.
+- Updated classifiers to include Python 3.12 and 3.13.
+- Aligned packaging metadata with supported versions (Django 5.1, DRF 3.15).
+
+### Docs
+- Expanded README with detailed settings, API usage, and examples.
+
+### Notes
+- No functional code changes since v0.1.8; this is a packaging and documentation update to prepare for the 0.2.0 release.
+
 ## [v0.1.8] – 2025-05-23
 
 ### **Changed**
