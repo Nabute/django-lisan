@@ -3,6 +3,7 @@ from django.db import IntegrityError
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from tests.models import TestModel
 from unittest.mock import patch
+from types import SimpleNamespace
 
 
 class TestLisanModelMixin(TestCase):
@@ -63,6 +64,15 @@ class TestLisanModelMixin(TestCase):
         """
         with self.assertRaises(FieldDoesNotExist):
             self.instance.set_lisan('am', non_existent_field="Invalid")
+
+    def test_set_lisan_invalid_field_on_create(self):
+        """
+        Test creating a translation with an invalid field triggers FieldDoesNotExist.
+        """
+        # Delete 'tg' so that path goes through create branch
+        self.instance.Lisan.objects.filter(language_code='tg', testmodel=self.instance).delete()
+        with self.assertRaises(FieldDoesNotExist):
+            self.instance.set_lisan('tg', non_existent_field="Invalid")
 
     def test_set_lisan_invalid_language_code(self):
         """
@@ -184,6 +194,47 @@ class TestLisanModelMixin(TestCase):
                 self.instance.get_lisan('am')
             self.assertEqual(str(context.exception), "Unexpected error")
 
+    def test_get_lisan_object_does_not_exist_exception_path(self):
+        """
+        Force ObjectDoesNotExist in get_lisan to hit the exception branch.
+        """
+        with patch.object(
+                self.instance.Lisan.objects,
+                'filter',
+                side_effect=ObjectDoesNotExist):
+            # Clear cache to ensure ORM path is exercised
+            self.instance.__dict__.pop('_lisan_cache', None)
+            self.assertIsNone(self.instance.get_lisan('fr'))
+            # Call again to verify cached None avoids ORM
+            self.assertIsNone(self.instance.get_lisan('fr'))
+
+    def test_set_lisan_integrity_error_propagates(self):
+        """
+        Test that set_lisan re-raises IntegrityError from the DB layer.
+        """
+        with patch.object(
+                self.instance.Lisan.objects,
+                'filter',
+                side_effect=IntegrityError("integrity boom")):
+            with self.assertRaises(IntegrityError):
+                self.instance.set_lisan('am', title="x")
+
+    def test_set_lisan_general_exception_propagates(self):
+        """
+        General exceptions from the ORM are propagated by set_lisan.
+        """
+        with patch.object(
+                self.instance.Lisan.objects,
+                'filter',
+                side_effect=Exception("set boom")):
+            with self.assertRaises(Exception) as ctx:
+                self.instance.set_lisan('am', title="x")
+            self.assertEqual(str(ctx.exception), "set boom")
+
+    def test_validate_language_code_unsupported_raises(self):
+        with self.assertRaises(ValueError):
+            self.instance._validate_language_code('zz')
+
     def test_set_lisan_field_does_not_exist(self):
         """
         Test that set_lisan raises FieldDoesNotExist if an invalid
@@ -208,6 +259,43 @@ class TestLisanModelMixin(TestCase):
         self.assertEqual(lisan.title, "ሰላም")
         self.assertEqual(lisan.description, "ምሳሌ")
         self.assertEqual(lisan.testmodel_id, self.instance.id)
+
+    def test_set_lisan_primary_key_custom_name_branch(self):
+        """
+        Exercise branch where pk.name != 'id' to cover pop/setattr code path.
+        """
+        # Ensure language will create a new translation
+        lang = 'or'
+        self.instance.Lisan.objects.filter(language_code=lang, testmodel=self.instance).delete()
+        # Monkey patch filter to avoid ORM using pk in order_by, and patch pk & save
+        with patch.object(
+            self.instance.Lisan.objects,
+            'filter',
+            return_value=SimpleNamespace(first=lambda: None)
+        ), patch.object(
+            self.instance.Lisan._meta,
+            'pk',
+            new=SimpleNamespace(name='custom_pk')
+        ), patch.object(
+            self.instance.Lisan,
+            'save',
+            lambda _self, *a, **k: None
+        ), patch.object(
+            self.instance.Lisan,
+            '__init__',
+            lambda _self, *a, **k: None
+        ), patch.object(
+            self.instance.Lisan,
+            'custom_pk',
+            None,
+            create=True
+        ):
+            lisan = self.instance.set_lisan(
+                lang, title="T", description="D", custom_pk="1234"
+            )
+            # The model doesn't have a real 'custom_pk' field, but attribute is set
+            self.assertTrue(hasattr(lisan, 'custom_pk'))
+            self.assertEqual(getattr(lisan, 'custom_pk'), "1234")
 
     def test_set_lisan_primary_key_value(self):
         """
