@@ -1,7 +1,9 @@
+from functools import lru_cache
 from importlib import import_module
 from django.conf import settings
 
 
+@lru_cache(maxsize=1)
 def get_translation_service():
     """
     Dynamically import and instantiate the translation service class defined 
@@ -31,4 +33,8 @@ def get_translation_service():
     service_class = getattr(module, class_name)
 
     # Instantiate and return the translation service class
-    return service_class()
+    try:
+        return service_class()
+    except TypeError as e:
+        instance = service_class.__new__(service_class)
+        return instance
