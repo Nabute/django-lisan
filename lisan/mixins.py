@@ -32,22 +32,28 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                            or None if not found.
         """
         language_code = language_code or self._current_language
+        cache = self.__dict__.setdefault('_lisan_cache', {})
+        if language_code in cache:
+            return cache[language_code]
         related_name = f"{self._meta.model_name}_lisans"
 
         if hasattr(self, "_prefetched_objects_cache") and \
                 related_name in self._prefetched_objects_cache:
             prefetched = self._prefetched_objects_cache.get(related_name) or []
             for lisan in prefetched:
-                if lisan.language_code == language_code:
-                    return lisan
-            return None
+                cache.setdefault(lisan.language_code, lisan)
+            cache.setdefault(language_code, None)
+            return cache.get(language_code)
         try:
             filter_kwargs = {
                     "language_code": language_code,
                     f"{self._meta.model_name}": self
                 }
-            return self.Lisan.objects.filter(**filter_kwargs).first()
+            lisan = self.Lisan.objects.filter(**filter_kwargs).first()
+            cache[language_code] = lisan
+            return lisan
         except ObjectDoesNotExist:
+            cache[language_code] = None
             return None
         except Exception as e:
             # Log or handle unexpected exceptions if needed
@@ -218,7 +224,10 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
         )
         # Try to get the field from available translations
         for lang in [language_code] + fallback_languages:
-            lisan = self.get_lisan(lang)
+            cache = getattr(self, '_lisan_cache', {})
+            lisan = cache.get(lang)
+            if lisan is None and lang not in cache:
+                lisan = self.get_lisan(lang)
             if lisan and hasattr(lisan, field_name):
                 return getattr(lisan, field_name)
 

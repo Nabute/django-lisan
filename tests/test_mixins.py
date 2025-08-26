@@ -286,3 +286,16 @@ class TestLisanModelMixin(TestCase):
             language_code='or').count()
         self.assertEqual(am_translations_count, 1)
         self.assertEqual(or_translations_count, 1)
+
+    def test_get_lisan_field_repeated_calls_constant_queries(self):
+        """Ensure repeated calls do not trigger additional queries."""
+        with self.assertNumQueries(1):
+            self.instance.get_lisan_field('title', 'am')
+            self.instance.get_lisan_field('title', 'am')
+            self.instance.get_lisan_field('title', 'am')
+
+    def test_get_lisan_field_multiple_fields_constant_queries(self):
+        """Fetching multiple fields uses a single translation query."""
+        with self.assertNumQueries(1):
+            self.instance.get_lisan_field('title', 'am')
+            self.instance.get_lisan_field('description', 'am')
