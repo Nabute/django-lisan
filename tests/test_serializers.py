@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIRequestFactory
 from rest_framework.exceptions import ValidationError
 from tests.models import TestModel
@@ -70,10 +70,10 @@ class TestLisanSerializerMixin(TestCase):
 
         self.serializer_class = TestModelSerializer
 
-    def test_representation(self):
+    def test_representation_default_omits_translations(self):
         """
-        Test the representation of the model with language-specific fields
-        and structured translations.
+        Test that translations are omitted from the representation by default
+        to avoid unnecessary database queries.
         """
         serializer = self.serializer_class(
             self.model_instance, context={'request': self.request})
@@ -83,13 +83,51 @@ class TestLisanSerializerMixin(TestCase):
         self.assertEqual(representation['title'], "Hello World")
         self.assertEqual(representation['description'], "Sample description")
 
-        # Check structured translations
+        # Ensure translations are omitted
+        self.assertNotIn('translations', representation)
+
+    def test_representation_includes_translations_when_requested(self):
+        """
+        Test that translations are included when explicitly requested via
+        query parameter.
+        """
+        request = self.factory.get('/', {'include_translations': 'true'})
+        request.language_code = 'en'
+        serializer = self.serializer_class(
+            self.model_instance, context={'request': request})
+        representation = serializer.data
+
+        # Check language-specific fields
+        self.assertEqual(representation['title'], "Hello World")
+        self.assertEqual(representation['description'], "Sample description")
+
+        # Check structured translations are present
         self.assertIn('translations', representation)
         translations = representation['translations']
         self.assertEqual(len(translations), 4)  # en, am, or, tg
         self.assertEqual(translations[1]['language_code'], 'am')
         self.assertEqual(translations[1]['title'], "ሰላም")
         self.assertEqual(translations[1]['description'], "ምሳሌ")
+        
+    @override_settings(LISAN_INCLUDE_TRANSLATIONS_DETAIL=True)
+    def test_representation_includes_translations_when_setting_enabled_detail(self):
+        """Ensure settings can enable translations for detail views by default."""
+        serializer = self.serializer_class(
+            self.model_instance, context={'request': self.request}
+        )
+        representation = serializer.data
+        self.assertIn('translations', representation)
+        self.assertEqual(len(representation['translations']), 4)
+
+    @override_settings(LISAN_INCLUDE_TRANSLATIONS_BULK=True)
+    def test_representation_includes_translations_when_setting_enabled_bulk(self):
+        """Ensure settings can enable translations for list views by default."""
+        serializer = self.serializer_class(
+            [self.model_instance], many=True, context={'request': self.request}
+        )
+        representation = serializer.data
+        self.assertIn('translations', representation[0])
+        self.assertEqual(len(representation[0]['translations']), 4)
 
     def test_create_with_translations(self):
         """
