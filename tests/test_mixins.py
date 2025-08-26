@@ -161,12 +161,14 @@ class TestLisanModelMixin(TestCase):
         """
         Test that get_lisan returns None if the Lisan object does not exist.
         """
-        with patch.object(
-                self.instance.Lisan.objects,
-                'filter',
-                side_effect=ObjectDoesNotExist):
-            lisan = self.instance.get_lisan('am')
-            self.assertIsNone(lisan)
+        # Clear existing translation and ensure query returns no result
+        self.instance.Lisan.objects.filter(
+            language_code='am', testmodel=self.instance
+        ).delete()
+        # Clear cache to ensure ORM is consulted
+        self.instance.__dict__.pop('_lisan_cache', None)
+        lisan = self.instance.get_lisan('am')
+        self.assertIsNone(lisan)
 
     def test_get_lisan_general_exception(self):
         """
@@ -176,6 +178,8 @@ class TestLisanModelMixin(TestCase):
                 self.instance.Lisan.objects,
                 'filter',
                 side_effect=Exception("Unexpected error")):
+            # Clear cache to force call path into ORM
+            self.instance.__dict__.pop('_lisan_cache', None)
             with self.assertRaises(Exception) as context:
                 self.instance.get_lisan('am')
             self.assertEqual(str(context.exception), "Unexpected error")
@@ -289,13 +293,63 @@ class TestLisanModelMixin(TestCase):
 
     def test_get_lisan_field_repeated_calls_constant_queries(self):
         """Ensure repeated calls do not trigger additional queries."""
-        with self.assertNumQueries(1):
+        # 'am' is cached during setUp via set_lisan
+        with self.assertNumQueries(0):
             self.instance.get_lisan_field('title', 'am')
             self.instance.get_lisan_field('title', 'am')
             self.instance.get_lisan_field('title', 'am')
 
     def test_get_lisan_field_multiple_fields_constant_queries(self):
-        """Fetching multiple fields uses a single translation query."""
-        with self.assertNumQueries(1):
+        """Fetching multiple fields reuses cached translation without queries."""
+        # 'am' is cached during setUp via set_lisan
+        with self.assertNumQueries(0):
             self.instance.get_lisan_field('title', 'am')
             self.instance.get_lisan_field('description', 'am')
+
+    def test_get_lisan_field_prefetched_zero_queries(self):
+        inst = TestModel.objects.prefetch_related('testmodel_lisans').get(pk=self.instance.pk)
+        with self.assertNumQueries(0):
+            inst.get_lisan_field('title', 'am')
+            inst.get_lisan_field('description', 'am')
+
+    def test_get_lisan_prefetched_missing_language_zero_queries(self):
+        inst = TestModel.objects.prefetch_related('testmodel_lisans').get(pk=self.instance.pk)
+        with self.assertNumQueries(0):
+            self.assertIsNone(inst.get_lisan('fr'))
+
+    def test_get_lisan_missing_language_cached_none(self):
+        with self.assertNumQueries(1):
+            self.assertIsNone(self.instance.get_lisan('fr'))
+            self.assertIsNone(self.instance.get_lisan('fr'))
+            self.assertIsNone(self.instance.get_lisan('fr'))
+
+    def test_get_lisan_field_missing_language_cached_none(self):
+        with self.assertNumQueries(1):
+            # Avoid fallback lookups to ensure only one query for 'fr'
+            self.instance.get_lisan_field('title', 'fr', fallback_languages=[])
+            self.instance.get_lisan_field('title', 'fr', fallback_languages=[])
+    
+    def test_get_lisan_field_with_fallback_caches_both_languages(self):
+        # 'tg' is cached during setUp via set_lisan, so only 'fr' causes a query
+        with self.assertNumQueries(1):
+            self.instance.get_lisan_field('title', 'fr', fallback_languages=['tg'])
+            # second call: both 'fr' and 'tg' are cached → 0 new queries
+            self.instance.get_lisan_field('title', 'fr', fallback_languages=['tg'])
+            
+    def test_cache_updates_after_set_lisan(self):
+        # Prime cache
+        self.instance.get_lisan_field('title', 'am')
+        # Update translation
+        self.instance.set_lisan('am', title='Updated Title')
+        # Should return updated value without extra query if cache is refreshed
+        title = self.instance.get_lisan_field('title', 'am')
+        self.assertEqual(title, 'Updated Title')
+        
+    def test_cache_is_per_instance(self):
+        other = TestModel.objects.create(title="Hello", description="D")
+        other.set_lisan('am', title="X", description="Y")
+        # Populate cache on self.instance
+        self.instance.get_lisan_field('title', 'am')
+        # Accessing other instance should not query because its own cache was populated by set_lisan
+        with self.assertNumQueries(0):
+            other.get_lisan_field('title', 'am')

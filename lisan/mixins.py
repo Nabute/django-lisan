@@ -129,6 +129,8 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                                 "translation model."
                             )
                     lisan.save()
+                # Update internal cache to reflect the latest saved translation
+                self.__dict__.setdefault('_lisan_cache', {})[language_code] = lisan
                 return lisan
         except IntegrityError:
             raise IntegrityError(
@@ -219,9 +221,10 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                             its translations.
         """
         language_code = language_code or self._current_language
-        fallback_languages = fallback_languages or getattr(
-            settings, 'LISAN_FALLBACK_LANGUAGES', ['en']
-        )
+        if fallback_languages is None:
+            fallback_languages = getattr(
+                settings, 'LISAN_FALLBACK_LANGUAGES', ['en']
+            )
         # Try to get the field from available translations
         for lang in [language_code] + fallback_languages:
             cache = getattr(self, '_lisan_cache', {})
@@ -239,6 +242,11 @@ class LisanModelMixin(models.Model, metaclass=LisanModelMeta):
                 original_text, target_language=language_code)
 
         # Fallback to default field
+        # Also cache the absence for the primary language to avoid repeated
+        # lookups for missing translations when falling back to the default
+        # model field value.
+        cache = self.__dict__.setdefault('_lisan_cache', {})
+        cache.setdefault(language_code, None)
         return getattr(self, field_name)
 
     def set_current_language(self, language_code):
